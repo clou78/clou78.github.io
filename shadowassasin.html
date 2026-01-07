@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shadow Assassin - HP+ STUDIO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff3e3e;
+            --bg: #0a0a0c;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Roboto', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+        h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        .menu-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .hidden { display: none !important; }
+        .btn-red {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .btn-red:hover {
+            background: #ff5e5e;
+            box-shadow: 0 0 15px var(--primary);
+        }
+        .joystick-container {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            z-index: 50;
+            display: none; /* Shown on touch devices */
+        }
+        .joystick-knob {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 50px; height: 50px;
+            background: var(--primary);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.6;
+        }
+        .action-buttons {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            display: none; /* Shown on touch devices */
+            gap: 20px;
+            z-index: 50;
+        }
+        .action-btn {
+            width: 70px; height: 70px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border: 2px solid rgba(255,255,255,0.3);
+            font-size: 12px;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            z-index: 40;
+        }
+        /* Bloom Effect Layer */
+        #bloom-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 30;
+            mix-blend-mode: screen;
+            filter: blur(4px) brightness(1.2);
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <!-- Bloom is just a cloned canvas drawn on top occasionally or filtered -->
+    
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="flex flex-col gap-2">
+            <div class="text-xl font-bold text-red-500">HP: <span id="hp-val">100</span></div>
+            <div class="text-white">AMMO: <span id="ammo-val">12/48</span></div>
+            <div class="text-gray-400 text-sm">MISSION: <span id="mission-text">Eliminate all bandits</span></div>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="menu-overlay">
+        <h1 class="text-6xl font-black mb-2 text-red-600 tracking-tighter">SHADOW ASSASSIN</h1>
+        <p class="mb-10 text-gray-400">HP+ STUDIO - V1.0.0</p>
+        <div class="flex flex-col gap-4 w-64">
+            <button class="btn-red text-xl" onclick="startGame()">START GAME</button>
+            <button class="btn-red opacity-70" onclick="showSettings()">SETTINGS</button>
+            <button class="btn-red opacity-70" onclick="showAbout()">ABOUT</button>
+        </div>
+    </div>
+
+    <!-- Settings Menu -->
+    <div id="settings-menu" class="menu-overlay hidden">
+        <h2 class="text-3xl mb-6">SETTINGS</h2>
+        <div class="w-full max-w-2xl bg-zinc-900/80 p-6 rounded-lg overflow-y-auto max-h-[80vh]">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Graphics -->
+                <section>
+                    <h3 class="text-red-500 mb-4 border-b border-red-500/30 pb-1">GRAPHICS</h3>
+                    <div class="flex flex-col gap-3">
+                        <label class="flex justify-between items-center">
+                            Texture Quality:
+                            <select id="cfg-textures" class="bg-black border border-white/20 p-1">
+                                <option value="low">Low</option>
+                                <option value="mid" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </label>
+                        <label class="flex justify-between items-center">
+                            Bloom Effect:
+                            <input type="checkbox" id="cfg-bloom" checked>
+                        </label>
+                        <label class="flex justify-between items-center">
+                            Post-Processing:
+                            <input type="checkbox" id="cfg-post" checked>
+                        </label>
+                        <label class="flex justify-between items-center">
+                            Resolution:
+                            <select id="cfg-res" class="bg-black border border-white/20 p-1">
+                                <option value="0.5">50%</option>
+                                <option value="1" selected>100%</option>
+                                <option value="1.5">150%</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+                <!-- Sound -->
+                <section>
+                    <h3 class="text-red-500 mb-4 border-b border-red-500/30 pb-1">SOUND</h3>
+                    <div class="flex flex-col gap-3">
+                        <label class="flex flex-col">
+                            Music Volume:
+                            <input type="range" id="cfg-music" min="0" max="100" value="70">
+                        </label>
+                        <label class="flex flex-col">
+                            SFX Volume:
+                            <input type="range" id="cfg-sfx" min="0" max="100" value="85">
+                        </label>
+                    </div>
+                </section>
+                <!-- Controls -->
+                <section class="md:col-span-2">
+                    <h3 class="text-red-500 mb-4 border-b border-red-500/30 pb-1">CONTROLS (PC / MOBILE)</h3>
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                            <p class="mb-2 font-bold">KEYBOARD:</p>
+                            <p>WASD - Move</p>
+                            <p>LMB - Shoot</p>
+                            <p>RMB - Knife</p>
+                            <p>R - Reload</p>
+                            <p>F - Fullscreen</p>
+                        </div>
+                        <div>
+                            <p class="mb-2 font-bold">MOBILE UI SETTINGS:</p>
+                            <label class="flex justify-between">Size: <input type="range" id="cfg-ui-size" min="50" max="150" value="100"></label>
+                            <label class="flex justify-between">Opacity: <input type="range" id="cfg-ui-opacity" min="10" max="100" value="60"></label>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <button class="mt-8 btn-red" onclick="hideSettings()">SAVE & BACK</button>
+    </div>
+
+    <!-- About Menu -->
+    <div id="about-menu" class="menu-overlay hidden">
+        <h2 class="text-3xl mb-6">ABOUT THE GAME</h2>
+        <div class="w-full max-w-lg bg-zinc-900/80 p-8 rounded-lg text-center">
+            <p class="mb-4">Shadow Assassin is a tactical top-down shooter where stealth is your greatest weapon. Navigate through enemy territory, eliminate targets silently, and stay out of sight.</p>
+            <div class="text-left bg-black/40 p-4 rounded mb-6">
+                <p><strong>Studio:</strong> HP+ STUDIO</p>
+                <p><strong>Telegram:</strong> @HPLUS_AI</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+            </div>
+            <button class="btn-red" onclick="hideAbout()">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls" class="hidden">
+        <div class="joystick-container" id="joystick-main">
+            <div class="joystick-knob" id="joystick-knob"></div>
+        </div>
+        <div class="action-buttons" id="action-btns">
+            <button class="action-btn" id="btn-reload">RELOAD</button>
+            <button class="action-btn bg-red-600/40" id="btn-shoot">SHOOT</button>
+            <button class="action-btn bg-gray-600/40" id="btn-knife">KNIFE</button>
+        </div>
+    </div>
+
+    <!-- Win/Loss Overlay -->
+    <div id="game-over" class="menu-overlay hidden">
+        <h2 id="over-title" class="text-5xl mb-4">MISSION FAILED</h2>
+        <p id="over-msg" class="mb-10 text-gray-300 text-center px-10"></p>
+        <button class="btn-red" onclick="restartLevel()">TRY AGAIN</button>
+        <button class="mt-4 text-gray-400" onclick="location.reload()">MAIN MENU</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const hudHP = document.getElementById('hp-val');
+const hudAmmo = document.getElementById('ammo-val');
+const hudMission = document.getElementById('mission-text');
+
+// State
+let gameState = 'menu';
+let currentLevel = 0;
+let player, enemies = [], walls = [], props = [], particles = [], dialogues = [];
+let keys = {};
+let mouse = { x: 0, y: 0, down: false, rightDown: false };
+let joystick = { active: false, x: 0, y: 0, originX: 0, originY: 0 };
+let lastTime = 0;
+let camera = { x: 0, y: 0, zoom: 1 };
+
+// Settings
+const settings = {
+    textures: 'mid',
+    bloom: true,
+    post: true,
+    resolution: 1,
+    music: 70,
+    sfx: 85,
+    uiSize: 100,
+    uiOpacity: 60
+};
+
+// --- AUDIO ENGINE ---
+const AudioEngine = (() => {
+    let audioCtx;
+    const init = () => { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); };
+    const playTone = (freq, type, duration, vol = 0.1) => {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol * (settings.sfx / 100), audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    };
+    return {
+        init,
+        shoot: () => playTone(150, 'square', 0.1, 0.2),
+        knife: () => playTone(800, 'sine', 0.05, 0.1),
+        hit: () => playTone(60, 'sawtooth', 0.2, 0.3),
+        step: () => playTone(100, 'sine', 0.05, 0.02),
+        alert: () => playTone(440, 'triangle', 0.2, 0.1)
+    };
+})();
+
+// --- MAP DATA ---
+const LEVELS = [
+    {
+        name: "Training Ground",
+        map: [
+            "WWWWWWWWWWWWWWWWWWWW",
+            "W........W.........W",
+            "W...E....W.........W",
+            "W........W....E....W",
+            "W..WWW...W.........W",
+            "W..W.....W....WWWWWW",
+            "W..W...........W...W",
+            "W..W.....P.....W...W",
+            "W..WWWWWWWW....W...W",
+            "W..............W...W",
+            "W...E..........W...W",
+            "W........E.....W...W",
+            "WWWWWWWWWWWWWWWWWWWW"
+        ],
+        enemies: 4
+    },
+    {
+        name: "The Warehouse",
+        map: [
+            "WWWWWWWWWWWWWWWWWWWWWWWWWW",
+            "W........................W",
+            "W..WWW..WWWW...WWW..WWW..W",
+            "W..W..E....W.....W..W....W",
+            "W..W.......W..E..W..W....W",
+            "W..W.......W.....W..W....W",
+            "W..WWWW..WWW...WWW..W....W",
+            "W........................W",
+            "W..P.........E...........W",
+            "W........................W",
+            "W..WWWW..WWWWWWWWWW..WWWWW",
+            "W..W..........W..........W",
+            "W..W...E......W.....E....W",
+            "W..W..........W..........W",
+            "WWWWWWWWWWWWWWWWWWWWWWWWWW"
+        ],
+        enemies: 5
+    }
+];
+
+const TILE_SIZE = 64;
+
+class Wall {
+    constructor(x, y, w, h, type = 'wall') {
+        this.x = x; this.y = y; this.w = w; this.h = h; this.type = type;
+    }
+    draw() {
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(this.x + 8, this.y + 8, this.w, this.h);
+
+        // Wall Body
+        ctx.fillStyle = '#1e2124';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        
+        // Highlights / Top texture
+        ctx.strokeStyle = '#3a3f44';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(this.x, this.y, this.w, this.h);
+        
+        // Roughness
+        ctx.fillStyle = '#2c3136';
+        ctx.fillRect(this.x + 10, this.y + 10, this.w - 20, this.h - 20);
+    }
+}
+
+class Prop {
+    constructor(x, y, type) {
+        this.x = x; this.y = y; this.type = type;
+        this.radius = 20;
+    }
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.type === 'crate') {
+            ctx.fillStyle = '#5c4033';
+            ctx.fillRect(-20, -20, 40, 40);
+            ctx.strokeStyle = '#3e2723';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-18, -18, 36, 36);
+            ctx.beginPath(); ctx.moveTo(-20, -20); ctx.lineTo(20, 20); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(20, -20); ctx.lineTo(-20, 20); ctx.stroke();
+        } else if (this.type === 'table') {
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(-30, -20, 60, 40);
+            ctx.fillStyle = '#5d2906';
+            ctx.fillRect(-25, -15, 50, 30);
+        }
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color, speed, life) {
+        this.x = x; this.y = y; this.color = color;
+        this.vx = (Math.random() - 0.5) * speed;
+        this.vy = (Math.random() - 0.5) * speed;
+        this.life = life; this.maxLife = life;
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        this.life--;
+    }
+    draw() {
+        ctx.globalAlpha = this.life / this.maxLife;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, 3, 3);
+        ctx.globalAlpha = 1;
+    }
+}
+
+class DialogueBubble {
+    constructor(text, x, y, duration = 120) {
+        this.text = text; this.x = x; this.y = y; this.timer = duration;
+    }
+    update(x, y) { this.x = x; this.y = y; this.timer--; }
+    draw() {
+        ctx.font = '12px Roboto';
+        const w = ctx.measureText(this.text).width + 10;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(this.x - w/2, this.y - 40, w, 20);
+        ctx.strokeStyle = 'white';
+        ctx.strokeRect(this.x - w/2, this.y - 40, w, 20);
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y - 26);
+    }
+}
+
+class Character {
+    constructor(x, y, color) {
+        this.x = x; this.y = y; this.color = color;
+        this.radius = 20;
+        this.angle = 0;
+        this.hp = 100;
+        this.speed = 3;
+        this.fov = Math.PI / 2.5;
+        this.viewDist = 400;
+        this.isDead = false;
+    }
+    
+    drawBody() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Shoulders/Backpack
+        ctx.fillStyle = '#222';
+        ctx.fillRect(-12, -18, 15, 36);
+
+        // Body
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Hands / Weapon
+        ctx.fillStyle = '#333';
+        ctx.fillRect(10, 8, 20, 6); // Right arm/gun
+        
+        // Head
+        ctx.fillStyle = '#f2c1a0';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes (direction)
+        ctx.fillStyle = 'black';
+        ctx.fillRect(4, -4, 2, 2);
+        ctx.fillRect(4, 2, 2, 2);
+
+        ctx.restore();
+    }
+
+    checkWallCollision(nx, ny) {
+        for (let wall of walls) {
+            if (nx + this.radius > wall.x && nx - this.radius < wall.x + wall.w &&
+                ny + this.radius > wall.y && ny - this.radius < wall.y + wall.h) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+class Player extends Character {
+    constructor(x, y) {
+        super(x, y, '#4287f5');
+        this.ammo = 12;
+        this.maxAmmo = 12;
+        this.totalAmmo = 48;
+        this.weapon = 'gun';
+        this.lastShot = 0;
+    }
+
+    update() {
+        let dx = 0, dy = 0;
+        if (keys['KeyW'] || joystick.y < -0.2) dy -= 1;
+        if (keys['KeyS'] || joystick.y > 0.2) dy += 1;
+        if (keys['KeyA'] || joystick.x < -0.2) dx -= 1;
+        if (keys['KeyD'] || joystick.x > 0.2) dx += 1;
+
+        if (dx !== 0 || dy !== 0) {
+            const mag = Math.sqrt(dx*dx + dy*dy);
+            const nx = this.x + (dx/mag) * this.speed;
+            const ny = this.y + (dy/mag) * this.speed;
+            if (!this.checkWallCollision(nx, this.y)) this.x = nx;
+            if (!this.checkWallCollision(this.x, ny)) this.y = ny;
+            
+            if (Math.random() < 0.1) AudioEngine.step();
+        }
+
+        // Aiming
+        if (!isTouchDevice()) {
+            this.angle = Math.atan2(mouse.y - (this.y - camera.y), mouse.x - (this.x - camera.x));
+        } else if (joystick.active) {
+            this.angle = Math.atan2(joystick.y, joystick.x);
+        }
+
+        if ((mouse.down || keys['Space']) && this.weapon === 'gun') this.shoot();
+        if ((mouse.rightDown || keys['KeyE'])) this.stab();
+        
+        if (keys['KeyR'] && this.ammo < this.maxAmmo) this.reload();
+
+        hudHP.innerText = Math.max(0, Math.floor(this.hp));
+        hudAmmo.innerText = `${this.ammo}/${this.totalAmmo}`;
+    }
+
+    shoot() {
+        const now = Date.now();
+        if (now - this.lastShot < 250 || this.ammo <= 0) return;
+        this.lastShot = now;
+        this.ammo--;
+        AudioEngine.shoot();
+        
+        // Muzzle flash / Noise event
+        this.createNoise(this.x, this.y, 600);
+        
+        // Bullet raycast
+        this.raycastShot(this.angle, 800, 25);
+    }
+
+    stab() {
+        const now = Date.now();
+        if (now - this.lastShot < 500) return;
+        this.lastShot = now;
+        AudioEngine.knife();
+        this.raycastShot(this.angle, 60, 100);
+    }
+
+    reload() {
+        if (this.totalAmmo <= 0 || this.ammo === this.maxAmmo) return;
+        const needed = this.maxAmmo - this.ammo;
+        const amount = Math.min(needed, this.totalAmmo);
+        this.ammo += amount;
+        this.totalAmmo -= amount;
+        this.lastShot = Date.now() + 1000; // 1s reload time
+    }
+
+    createNoise(x, y, radius) {
+        enemies.forEach(e => {
+            const dist = Math.hypot(e.x - x, e.y - y);
+            if (dist < radius) {
+                e.hearNoise(x, y);
+            }
+        });
+    }
+
+    raycastShot(angle, range, damage) {
+        const step = 5;
+        for(let d = 0; d < range; d += step) {
+            const rx = this.x + Math.cos(angle) * d;
+            const ry = this.y + Math.sin(angle) * d;
+            
+            // Check walls
+            for(let w of walls) {
+                if(rx > w.x && rx < w.x + w.w && ry > w.y && ry < w.y + w.h) {
+                    this.createHitEffect(rx, ry, '#fff');
+                    return;
+                }
+            }
+            
+            // Check enemies
+            for(let e of enemies) {
+                if(!e.isDead && Math.hypot(e.x - rx, e.y - ry) < e.radius) {
+                    e.takeDamage(damage);
+                    this.createHitEffect(rx, ry, '#f00');
+                    return;
+                }
+            }
+        }
+    }
+
+    createHitEffect(x, y, color) {
+        for(let i=0; i<5; i++) particles.push(new Particle(x, y, color, 4, 20));
+    }
+    
+    takeDamage(dmg) {
+        this.hp -= dmg;
+        AudioEngine.hit();
+        if (this.hp <= 0 && gameState === 'playing') endGame(false);
+    }
+}
+
+class Enemy extends Character {
+    constructor(x, y) {
+        super(x, y, '#f54242');
+        this.state = 'patrol';
+        this.targetPos = { x: x, y: y };
+        this.patrolPoints = [
+            { x: x + 200, y: y },
+            { x: x, y: y + 200 },
+            { x: x, y: y }
+        ];
+        this.patrolIdx = 0;
+        this.waitTimer = 0;
+        this.investigateTimer = 0;
+        this.lastShot = 0;
+        this.speed = 1.5;
+    }
+
+    update() {
+        if (this.isDead) return;
+
+        const distToPlayer = Math.hypot(this.x - player.x, this.y - player.y);
+        const canSeePlayer = this.canSee(player.x, player.y);
+
+        if (canSeePlayer) {
+            this.state = 'combat';
+            this.targetPos = { x: player.x, y: player.y };
+            this.angle = Math.atan2(player.y - this.y, player.x - this.x);
+        }
+
+        switch(this.state) {
+            case 'patrol':
+                this.moveTo(this.patrolPoints[this.patrolIdx].x, this.patrolPoints[this.patrolIdx].y);
+                if (Math.hypot(this.x - this.patrolPoints[this.patrolIdx].x, this.y - this.patrolPoints[this.patrolIdx].y) < 5) {
+                    this.patrolIdx = (this.patrolIdx + 1) % this.patrolPoints.length;
+                }
+                break;
+            case 'investigate':
+                this.moveTo(this.targetPos.x, this.targetPos.y);
+                if (Math.hypot(this.x - this.targetPos.x, this.y - this.targetPos.y) < 10) {
+                    this.investigateTimer--;
+                    if (this.investigateTimer <= 0) this.state = 'patrol';
+                }
+                break;
+            case 'combat':
+                if (distToPlayer < 60) {
+                    // Back away if player is too close with knife
+                    const backAngle = Math.atan2(this.y - player.y, this.x - player.x);
+                    const nx = this.x + Math.cos(backAngle) * this.speed;
+                    const ny = this.y + Math.sin(backAngle) * this.speed;
+                    if (!this.checkWallCollision(nx, ny)) {
+                        this.x = nx; this.y = ny;
+                    }
+                } else if (distToPlayer > 200) {
+                    this.moveTo(player.x, player.y);
+                }
+                
+                if (canSeePlayer && Date.now() - this.lastShot > 800) {
+                    this.shoot();
+                } else if (!canSeePlayer) {
+                    this.state = 'investigate';
+                    this.targetPos = { x: player.x, y: player.y };
+                    this.investigateTimer = 300;
+                }
+                break;
+        }
+
+        // Dialogue Logic
+        if (Math.random() < 0.002) this.sayRandom();
+        
+        // Check meeting other enemies
+        enemies.forEach(other => {
+            if (other !== this && !other.isDead && Math.hypot(this.x - other.x, this.y - other.y) < 50) {
+                if (this.state === 'investigate' && other.state === 'patrol') {
+                    this.say("Did you hear that?");
+                    other.hearNoise(this.targetPos.x, this.targetPos.y);
+                }
+            }
+        });
+    }
+
+    moveTo(tx, ty) {
+        const ang = Math.atan2(ty - this.y, tx - this.x);
+        this.angle = ang;
+        const nx = this.x + Math.cos(ang) * this.speed;
+        const ny = this.y + Math.sin(ang) * this.speed;
+        if (!this.checkWallCollision(nx, this.y)) this.x = nx;
+        if (!this.checkWallCollision(this.x, ny)) this.y = ny;
+    }
+
+    canSee(tx, ty) {
+        const dist = Math.hypot(this.x - tx, this.y - ty);
+        if (dist > this.viewDist) return false;
+        
+        const angToTarget = Math.atan2(ty - this.y, tx - this.x);
+        let diff = angToTarget - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        
+        if (Math.abs(diff) > this.fov / 2) return false;
+        
+        // Wall check
+        const steps = dist / 10;
+        for (let i = 0; i < steps; i++) {
+            const rx = this.x + Math.cos(angToTarget) * (i * 10);
+            const ry = this.y + Math.sin(angToTarget) * (i * 10);
+            for (let w of walls) {
+                if (rx > w.x && rx < w.x + w.w && ry > w.y && ry < w.y + w.h) return false;
+            }
+        }
+        return true;
+    }
+
+    hearNoise(nx, ny) {
+        if (this.state === 'combat') return;
+        this.state = 'investigate';
+        this.targetPos = { x: nx, y: ny };
+        this.investigateTimer = 300;
+        
+        // Find nearby ally to talk to
+        const ally = enemies.find(e => e !== this && !e.isDead && Math.hypot(e.x - this.x, e.y - this.y) < 150);
+        if (ally) {
+            this.say("Ты тоже слышал выстрелы?");
+            setTimeout(() => { if(!ally.isDead) ally.say("Да, я тоже их слышал!"); }, 1000);
+            setTimeout(() => { if(!this.isDead) this.say("Пошли посмотрим что там."); }, 2500);
+            setTimeout(() => { if(!ally.isDead) ally.say("Да, пошли, но аккуратно."); }, 3500);
+        } else {
+            if (Math.random() > 0.5) this.say("Что это был за звук?");
+        }
+    }
+
+    shoot() {
+        this.lastShot = Date.now();
+        AudioEngine.shoot();
+        const playerAngle = Math.atan2(player.y - this.y, player.x - this.x);
+        // Add inaccuracy
+        const actualAngle = playerAngle + (Math.random() - 0.5) * 0.2;
+        
+        // Simple raycast for enemy shot
+        let hit = false;
+        for(let d=0; d<600; d+=10) {
+            const rx = this.x + Math.cos(actualAngle) * d;
+            const ry = this.y + Math.sin(actualAngle) * d;
+            for(let w of walls) if(rx > w.x && rx < w.x + w.w && ry > w.y && ry < w.y + w.h) { hit = true; break; }
+            if(hit) break;
+            if(Math.hypot(rx - player.x, ry - player.y) < player.radius) {
+                player.takeDamage(10);
+                break;
+            }
+        }
+    }
+
+    takeDamage(dmg) {
+        this.hp -= dmg;
+        this.state = 'combat';
+        if (this.hp <= 0) {
+            this.isDead = true;
+            enemies = enemies.filter(e => !e.isDead);
+            checkWin();
+        }
+    }
+
+    say(text) {
+        dialogues.push(new DialogueBubble(text, this.x, this.y));
+    }
+
+    sayRandom() {
+        const lines = ["Quiet today...", "I need a coffee.", "Hear anything?", "Keep alert."];
+        this.say(lines[Math.floor(Math.random() * lines.length)]);
+    }
+}
+
+// --- CORE GAME ENGINE ---
+
+function initLevel(idx) {
+    const level = LEVELS[idx];
+    currentLevel = idx;
+    walls = [];
+    enemies = [];
+    props = [];
+    particles = [];
+    dialogues = [];
+    
+    const map = level.map;
+    for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+            const char = map[y][x];
+            const px = x * TILE_SIZE;
+            const py = y * TILE_SIZE;
+            if (char === 'W') {
+                walls.push(new Wall(px, py, TILE_SIZE, TILE_SIZE));
+            } else if (char === 'P') {
+                player = new Player(px + TILE_SIZE/2, py + TILE_SIZE/2);
+            } else if (char === 'E') {
+                enemies.push(new Enemy(px + TILE_SIZE/2, py + TILE_SIZE/2));
+            }
+        }
+    }
+
+    // Add some random props for detail
+    walls.forEach(w => {
+        if (Math.random() < 0.1) {
+            props.push(new Prop(w.x + 100, w.y + 100, Math.random() > 0.5 ? 'crate' : 'table'));
+        }
+    });
+
+    hudMission.innerText = level.name;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply Global Post-Processing
+    if (settings.post) {
+        ctx.filter = 'contrast(1.1) brightness(0.9) saturate(1.2)';
+    }
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    // Floor
+    ctx.fillStyle = '#0f0f12';
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+    
+    // Grid
+    ctx.strokeStyle = '#15151a';
+    ctx.lineWidth = 1;
+    for(let i=0; i<3000; i+=64) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 3000); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(3000, i); ctx.stroke();
+    }
+
+    walls.forEach(w => w.draw());
+    props.forEach(p => p.draw());
+    enemies.forEach(e => { if(!e.isDead) e.drawBody(); });
+    player.drawBody();
+    particles.forEach(p => p.draw());
+    dialogues.forEach(d => d.draw());
+
+    // FOV / Darkness Effect
+    drawFOV();
+
+    ctx.restore();
+
+    // Bloom Layer (Simplified)
+    if (settings.bloom) {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.3;
+        ctx.filter = 'blur(8px) brightness(1.5)';
+        ctx.drawImage(canvas, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.filter = 'none';
+    }
+}
+
+function update(time) {
+    if (gameState !== 'playing') return;
+    const dt = time - lastTime;
+    lastTime = time;
+
+    player.update();
+    enemies.forEach(e => e.update());
+    particles.forEach((p, i) => {
+        p.update();
+        if (p.life <= 0) particles.splice(i, 1);
+    });
+    dialogues.forEach((d, i) => {
+        d.update(enemies.find(e => e.isDead === false && Math.hypot(e.x - d.x, e.y - d.y) < 100)?.x || d.x, 
+                 enemies.find(e => e.isDead === false && Math.hypot(e.x - d.x, e.y - d.y) < 100)?.y || d.y);
+        if (d.timer <= 0) dialogues.splice(i, 1);
+    });
+
+    // Camera follow
+    camera.x = player.x - canvas.width / 2;
+    camera.y = player.y - canvas.height / 2;
+
+    draw();
+    requestAnimationFrame(update);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    // Floor
+    ctx.fillStyle = '#0f0f12';
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+    
+    // Grid lines for "texture"
+    ctx.strokeStyle = '#15151a';
+    ctx.lineWidth = 1;
+    for(let i=0; i<2000; i+=64) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 2000); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(2000, i); ctx.stroke();
+    }
+
+    walls.forEach(w => w.draw());
+    enemies.forEach(e => { if(!e.isDead) e.drawBody(); });
+    player.drawBody();
+    particles.forEach(p => p.draw());
+    dialogues.forEach(d => d.draw());
+
+    // FOV / Darkness Effect
+    drawFOV();
+
+    ctx.restore();
+}
+
+function drawFOV() {
+    // Basic mask for visibility
+    const visibilityCanvas = document.createElement('canvas');
+    visibilityCanvas.width = canvas.width;
+    visibilityCanvas.height = canvas.height;
+    const vCtx = visibilityCanvas.getContext('2d');
+
+    vCtx.fillStyle = 'black';
+    vCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Player vision circle
+    vCtx.globalCompositeOperation = 'destination-out';
+    const grad = vCtx.createRadialGradient(player.x - camera.x, player.y - camera.y, 50, player.x - camera.x, player.y - camera.y, 400);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    vCtx.fillStyle = grad;
+    vCtx.beginPath();
+    vCtx.arc(player.x - camera.x, player.y - camera.y, 400, 0, Math.PI*2);
+    vCtx.fill();
+
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(visibilityCanvas, 0, 0);
+    ctx.restore();
+}
+
+// --- UI & CONTROL HANDLERS ---
+
+function startGame() {
+    AudioEngine.init();
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    if (isTouchDevice()) {
+        document.getElementById('mobile-controls').classList.remove('hidden');
+        document.getElementById('joystick-main').style.display = 'block';
+        document.getElementById('action-btns').style.display = 'flex';
+    }
+    
+    resize();
+    initLevel(0);
+    gameState = 'playing';
+    lastTime = performance.now();
+    requestAnimationFrame(update);
+}
+
+function endGame(win) {
+    gameState = 'over';
+    const screen = document.getElementById('game-over');
+    screen.classList.remove('hidden');
+    document.getElementById('over-title').innerText = win ? "MISSION ACCOMPLISHED" : "MISSION FAILED";
+    document.getElementById('over-msg').innerText = win ? "You have successfully cleared the area of bandits." : "The syndicate got the best of you this time.";
+}
+
+function checkWin() {
+    if (enemies.length === 0) {
+        if (currentLevel < LEVELS.length - 1) {
+            initLevel(currentLevel + 1);
+        } else {
+            endGame(true);
+        }
+    }
+}
+
+function restartLevel() {
+    document.getElementById('game-over').classList.add('hidden');
+    initLevel(currentLevel);
+    gameState = 'playing';
+    requestAnimationFrame(update);
+}
+
+// Input listeners
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'KeyF') {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    }
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+window.addEventListener('mousedown', e => {
+    if(e.button === 0) mouse.down = true;
+    if(e.button === 2) mouse.rightDown = true;
+});
+window.addEventListener('mouseup', e => {
+    if(e.button === 0) mouse.down = false;
+    if(e.button === 2) mouse.rightDown = false;
+});
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+// Touch Logic
+function isTouchDevice() { return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0); }
+
+const joystickKnob = document.getElementById('joystick-knob');
+const joystickBase = document.getElementById('joystick-main');
+
+joystickBase.addEventListener('touchstart', e => {
+    joystick.active = true;
+    const touch = e.touches[0];
+    const rect = joystickBase.getBoundingClientRect();
+    joystick.originX = rect.left + rect.width/2;
+    joystick.originY = rect.top + rect.height/2;
+}, {passive: false});
+
+window.addEventListener('touchmove', e => {
+    if(!joystick.active) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - joystick.originX;
+    const dy = touch.clientY - joystick.originY;
+    const dist = Math.min(60, Math.hypot(dx, dy));
+    const ang = Math.atan2(dy, dx);
+    joystick.x = (Math.cos(ang) * dist) / 60;
+    joystick.y = (Math.sin(ang) * dist) / 60;
+    joystickKnob.style.transform = `translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px))`;
+}, {passive: false});
+
+window.addEventListener('touchend', () => {
+    joystick.active = false;
+    joystick.x = 0; joystick.y = 0;
+    joystickKnob.style.transform = `translate(-50%, -50%)`;
+});
+
+document.getElementById('btn-shoot').addEventListener('touchstart', () => { if(player) player.shoot(); });
+document.getElementById('btn-knife').addEventListener('touchstart', () => { if(player) player.stab(); });
+document.getElementById('btn-reload').addEventListener('touchstart', () => { if(player) player.reload(); });
+
+function resize() {
+    canvas.width = window.innerWidth * settings.resolution;
+    canvas.height = window.innerHeight * settings.resolution;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', resize);
+
+// UI Toggles
+function showSettings() { document.getElementById('settings-menu').classList.remove('hidden'); }
+function hideSettings() { 
+    document.getElementById('settings-menu').classList.add('hidden'); 
+    settings.resolution = parseFloat(document.getElementById('cfg-res').value);
+    settings.bloom = document.getElementById('cfg-bloom').checked;
+    settings.uiSize = parseInt(document.getElementById('cfg-ui-size').value);
+    settings.uiOpacity = parseInt(document.getElementById('cfg-ui-opacity').value);
+    
+    // Apply UI tweaks
+    const ui = document.getElementById('mobile-controls');
+    ui.style.transform = `scale(${settings.uiSize / 100})`;
+    ui.style.opacity = settings.uiOpacity / 100;
+    resize();
+}
+function showAbout() { document.getElementById('about-menu').classList.remove('hidden'); }
+function hideAbout() { document.getElementById('about-menu').classList.add('hidden'); }
+
+// Initial resize
+resize();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Physics Sandbox</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; }
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-panel {
+            pointer-events: auto;
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+<div class="ui-overlay flex flex-col justify-between p-4">
+    <!-- Top UI -->
+    <div class="flex justify-between items-start pointer-events-none">
+        <div class="ui-panel flex flex-col gap-2">
+            <h1 class="text-white text-xl font-bold bg-black/40 p-2 rounded">3D Sandbox</h1>
+            <div class="flex gap-2">
+                <button onclick="spawn('box')" class="control-btn w-12 h-12 flex items-center justify-center" title="Box">📦</button>
+                <button onclick="spawn('sphere')" class="control-btn w-12 h-12 flex items-center justify-center" title="Sphere">⚽</button>
+                <button onclick="spawn('cylinder')" class="control-btn w-12 h-12 flex items-center justify-center" title="Cylinder">🔋</button>
+                <button onclick="spawnTower()" class="control-btn w-12 h-12 flex items-center justify-center font-bold" title="Tower">🏰</button>
+            </div>
+        </div>
+        
+        <div class="ui-panel flex flex-col gap-2 items-end">
+            <button onclick="resetScene()" class="control-btn text-sm">Очистить</button>
+            <div class="bg-black/40 p-3 rounded text-white text-xs">
+                <label class="block mb-1">Гравитация: <span id="grav-val">9.8</span></label>
+                <input type="range" min="0" max="40" step="1" value="10" oninput="changeGravity(this.value)" class="w-32">
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Instructions -->
+    <div class="pointer-events-none flex justify-center mb-4">
+        <div class="bg-black/60 text-white px-4 py-2 rounded-full text-xs md:text-sm">
+            Тяни за объекты, чтобы двигать. Зажми и води по экрану для вращения камеры.
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/+esm"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as CANNON from 'cannon-es';
+
+    // Constants
+    let scene, camera, renderer, world, controls;
+    let groundBody, groundMesh;
+    const meshes = [];
+    const bodies = [];
+    
+    // Physics dragging
+    let dragJoint = null;
+    let mouseConstraint = null;
+    let isDragging = false;
+    let dragPlane;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const movementVector = new THREE.Vector3();
+
+    init();
+    animate();
+
+    function init() {
+        // --- THREE.JS SETUP ---
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+        scene.fog = new THREE.Fog(0x222222, 20, 100);
+
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(10, 10, 10);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        directionalLight.shadow.camera.left = -20;
+        directionalLight.shadow.camera.right = 20;
+        directionalLight.shadow.camera.top = 20;
+        directionalLight.shadow.camera.bottom = -20;
+        scene.add(directionalLight);
+
+        // --- CANNON-ES SETUP ---
+        world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0);
+        world.broadphase = new CANNON.SAPBroadphase(world);
+        world.allowSleep = true;
+        world.defaultContactMaterial.friction = 0.4;
+        world.defaultContactMaterial.restitution = 0.3;
+
+        // Ground
+        const groundShape = new CANNON.Plane();
+        groundBody = new CANNON.Body({ mass: 0 });
+        groundBody.addShape(groundShape);
+        groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        world.addBody(groundBody);
+
+        const groundGeo = new THREE.PlaneGeometry(100, 100);
+        const groundMat = new THREE.MeshStandardMaterial({ 
+            color: 0x333333,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        groundMesh = new THREE.Mesh(groundGeo, groundMat);
+        groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.receiveShadow = true;
+        scene.add(groundMesh);
+
+        // Grid helper
+        const grid = new THREE.GridHelper(50, 50, 0x444444, 0x222222);
+        grid.position.y = 0.01;
+        scene.add(grid);
+
+        // Dragging Logic Helpers
+        dragPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(1000, 1000),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        scene.add(dragPlane);
+
+        // Initial objects
+        for(let i=0; i<5; i++) {
+            createObject('box', { x: (Math.random()-0.5)*4, y: 5+i*2, z: (Math.random()-0.5)*4 });
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', onWindowResize);
+        window.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('touchstart', onPointerDown, { passive: false });
+        window.addEventListener('touchmove', onPointerMove, { passive: false });
+        window.addEventListener('touchend', onPointerUp);
+
+        // Expose functions globally
+        window.spawn = (type) => {
+            const pos = {
+                x: (Math.random() - 0.5) * 2,
+                y: 10,
+                z: (Math.random() - 0.5) * 2
+            };
+            createObject(type, pos);
+        };
+        window.spawnTower = () => {
+            for(let i = 0; i < 6; i++) {
+                createObject('box', { x: 0, y: 0.5 + i * 1.1, z: 0 });
+            }
+        };
+        window.resetScene = resetScene;
+        window.changeGravity = (val) => {
+            world.gravity.set(0, -val, 0);
+            document.getElementById('grav-val').innerText = val;
+        };
+    }
+
+    function createObject(type, pos = { x: 0, y: 10, z: 0 }) {
+        let shape, geometry, material;
+        const color = new THREE.Color().setHSL(Math.random(), 0.7, 0.6);
+        material = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+
+        const size = 1;
+        let body;
+
+        if (type === 'box') {
+            shape = new CANNON.Box(new CANNON.Vec3(size / 2, size / 2, size / 2));
+            geometry = new THREE.BoxGeometry(size, size, size);
+        } else if (type === 'sphere') {
+            shape = new CANNON.Sphere(size / 2);
+            geometry = new THREE.SphereGeometry(size / 2, 24, 24);
+        } else if (type === 'cylinder') {
+            // Cannon-es cylinder is along Y axis, but slightly different definition
+            shape = new CANNON.Cylinder(size / 2, size / 2, size, 16);
+            geometry = new THREE.CylinderGeometry(size / 2, size / 2, size, 16);
+        }
+
+        body = new CANNON.Body({
+            mass: 1,
+            position: new CANNON.Vec3(pos.x, pos.y, pos.z),
+            shape: shape
+        });
+
+        // Add some random rotation
+        body.quaternion.setFromEuler(Math.random(), Math.random(), Math.random());
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        world.addBody(body);
+        scene.add(mesh);
+        bodies.push(body);
+        meshes.push(mesh);
+    }
+
+    function resetScene() {
+        bodies.forEach(b => world.removeBody(b));
+        meshes.forEach(m => scene.remove(m));
+        bodies.length = 0;
+        meshes.length = 0;
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // INTERACTION LOGIC
+    function onPointerDown(e) {
+        if (e.touches) e.preventDefault();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(meshes);
+
+        if (intersects.length > 0) {
+            controls.enabled = false;
+            isDragging = true;
+            
+            const pickedMesh = intersects[0].object;
+            const index = meshes.indexOf(pickedMesh);
+            const body = bodies[index];
+
+            const hitPoint = intersects[0].point;
+            
+            // Set up drag plane to be perpendicular to camera
+            dragPlane.position.copy(hitPoint);
+            dragPlane.lookAt(camera.position);
+
+            // Create a constraint (Point-to-Point)
+            const localPivot = body.pointToLocalFrame(new CANNON.Vec3(hitPoint.x, hitPoint.y, hitPoint.z));
+            
+            // Temporary static body at mouse position
+            const mouseBody = new CANNON.Body({ mass: 0 });
+            mouseBody.position.set(hitPoint.x, hitPoint.y, hitPoint.z);
+            
+            mouseConstraint = new CANNON.PointToPointConstraint(body, localPivot, mouseBody, new CANNON.Vec3(0, 0, 0));
+            world.addConstraint(mouseConstraint);
+            dragJoint = mouseBody;
+        }
+    }
+
+    function onPointerMove(e) {
+        if (e.touches) e.preventDefault();
+        if (!isDragging || !dragJoint) return;
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        mouse.x = (clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(dragPlane);
+
+        if (intersects.length > 0) {
+            const pos = intersects[0].point;
+            dragJoint.position.set(pos.x, pos.y, pos.z);
+        }
+    }
+
+    function onPointerUp() {
+        isDragging = false;
+        controls.enabled = true;
+        if (mouseConstraint) {
+            world.removeConstraint(mouseConstraint);
+            mouseConstraint = null;
+        }
+        dragJoint = null;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Step physics
+        world.fixedStep();
+
+        // Sync meshes with bodies
+        for (let i = 0; i < meshes.length; i++) {
+            meshes[i].position.copy(bodies[i].position);
+            meshes[i].quaternion.copy(bodies[i].quaternion);
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+</script>
+
+</body>
+</html>

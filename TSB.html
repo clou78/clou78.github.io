@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSB 2D - The Strongest Battlegrounds</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Roboto:wght@400;700&display=swap');
+        
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Roboto', sans-serif; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI Overlay Styles */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        .skill-box {
+            transition: all 0.2s;
+            border: 2px solid #444;
+            background: rgba(0,0,0,0.7);
+        }
+        .skill-box.ready { border-color: #fff; box-shadow: 0 0 10px #fff; }
+        .skill-box.cooldown { border-color: #555; opacity: 0.5; }
+        .skill-box.active { border-color: #fbbf24; box-shadow: 0 0 15px #fbbf24; }
+
+        .tsb-font { font-family: 'Black Ops One', cursive; }
+        
+        /* Finisher Cinematic */
+        #cinematic-overlay {
+            background: black;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        /* Admin Panel */
+        #admin-panel {
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #333;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        #admin-panel.open { transform: translateX(0); }
+
+        .shake { animation: shake 0.5s; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Layer -->
+    <div id="ui-layer" class="flex flex-col justify-between p-4 pointer-events-none">
+
+        <!-- Mobile Controls (Visible on small screens) -->
+        <div id="mobile-controls" class="absolute inset-0 z-30 hidden touch-none select-none sm:hidden">
+            <!-- D-Pad -->
+            <div class="absolute bottom-8 left-8 w-40 h-40 pointer-events-auto">
+                <button id="btn-up" class="absolute top-0 left-1/2 -translate-x-1/2 w-14 h-14 bg-gray-700/50 rounded-full border border-white/30 text-white font-bold active:bg-gray-600/80">▲</button>
+                <button id="btn-left" class="absolute left-0 top-1/2 -translate-y-1/2 w-14 h-14 bg-gray-700/50 rounded-full border border-white/30 text-white font-bold active:bg-gray-600/80">◀</button>
+                <button id="btn-right" class="absolute right-0 top-1/2 -translate-y-1/2 w-14 h-14 bg-gray-700/50 rounded-full border border-white/30 text-white font-bold active:bg-gray-600/80">▶</button>
+            </div>
+            
+            <!-- Actions -->
+            <div class="absolute bottom-8 right-8 pointer-events-auto flex flex-col items-end gap-2">
+                <div class="flex gap-2">
+                    <button id="btn-ult-mob" class="w-12 h-12 bg-red-600/60 rounded-full border border-white/50 text-xs font-bold text-white shadow shadow-red-500/50 active:bg-red-500">ULT</button>
+                </div>
+                <div class="flex gap-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btn-s1" class="w-14 h-14 bg-blue-600/50 rounded-full border border-white/30 text-white font-bold active:bg-blue-500/70">1</button>
+                        <button id="btn-s2" class="w-14 h-14 bg-blue-600/50 rounded-full border border-white/30 text-white font-bold active:bg-blue-500/70">2</button>
+                        <button id="btn-s3" class="w-14 h-14 bg-blue-600/50 rounded-full border border-white/30 text-white font-bold active:bg-blue-500/70">3</button>
+                        <button id="btn-s4" class="w-14 h-14 bg-blue-600/50 rounded-full border border-white/30 text-white font-bold active:bg-blue-500/70">4</button>
+                    </div>
+                    <button id="btn-punch" class="w-20 h-20 bg-red-700/60 rounded-full border-2 border-white/50 text-white font-bold active:bg-red-600/80 self-end shadow-lg">FIST</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Character Menu Button -->
+        <button onclick="document.getElementById('char-select').style.display = 'flex'" 
+                class="absolute top-2 left-1/2 transform -translate-x-1/2 z-40 pointer-events-auto bg-gray-900/80 border border-gray-500 text-white px-4 py-1 rounded hover:bg-gray-700 text-sm font-bold transition hover:scale-105 shadow-lg">
+            CHANGE CHARACTER
+        </button>
+        
+        <!-- Top Bar: Health & Ult -->
+        <div class="flex justify-between items-start w-full pointer-events-auto">
+            <!-- Player Status -->
+            <div class="w-1/3">
+                <div class="text-xl font-bold tsb-font mb-1" id="char-name">CHARACTER</div>
+                <div class="w-full h-6 bg-gray-800 border-2 border-gray-600 relative skew-x-[-10deg]">
+                    <div id="hp-bar" class="h-full bg-green-500 transition-all duration-200" style="width: 100%;"></div>
+                </div>
+                <!-- Ult Bar -->
+                <div class="mt-2 w-full h-4 bg-gray-900 border border-gray-700 relative cursor-pointer" onclick="game.tryActivateUlt()">
+                    <div id="ult-bar" class="h-full bg-red-600 transition-all duration-100" style="width: 0%;"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-xs font-bold tracking-widest text-shadow">ULTIMATE (G)</div>
+                </div>
+            </div>
+
+            <!-- Enemy Status -->
+            <div class="w-1/3 text-right">
+                <div class="text-xl font-bold tsb-font mb-1 text-red-500">WEAKEST DUMMY</div>
+                <div class="w-full h-6 bg-gray-800 border-2 border-gray-600 relative skew-x-[10deg]">
+                    <div id="enemy-hp-bar" class="h-full bg-red-600 transition-all duration-200 float-right" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Notification -->
+        <div id="center-text" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+            <h1 id="combo-text" class="tsb-font text-6xl text-yellow-400 drop-shadow-lg hidden">COMBO!</h1>
+        </div>
+
+        <!-- Bottom: Skills -->
+        <div class="flex justify-center gap-4 mb-4 pointer-events-auto" id="skill-container">
+            <!-- Skills injected by JS -->
+        </div>
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div id="char-select" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 pointer-events-auto">
+        <h1 class="text-5xl tsb-font text-white mb-10 text-center">THE STRONGEST BATTLEGROUNDS<br><span class="text-2xl text-gray-400">2D DEMO</span></h1>
+        <div class="grid grid-cols-2 gap-6">
+            <button onclick="game.selectChar('saitama')" class="p-6 bg-yellow-600 hover:bg-yellow-500 border-2 border-white rounded-lg text-xl font-bold w-64 text-center transition hover:scale-105">
+                STRONGEST HERO
+            </button>
+            <button onclick="game.selectChar('garou')" class="p-6 bg-purple-800 hover:bg-purple-700 border-2 border-white rounded-lg text-xl font-bold w-64 text-center transition hover:scale-105">
+                HERO HUNTER
+            </button>
+            <button onclick="game.selectChar('monster')" class="p-6 bg-red-900 hover:bg-red-800 border-2 border-white rounded-lg text-xl font-bold w-64 text-center transition hover:scale-105">
+                MONSTER FORM
+            </button>
+            <button onclick="game.selectChar('genos')" class="p-6 bg-orange-600 hover:bg-orange-500 border-2 border-white rounded-lg text-xl font-bold w-64 text-center transition hover:scale-105">
+                TECH PRODIGY
+            </button>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="absolute top-0 left-0 h-full w-64 p-4 z-40 pointer-events-auto text-sm">
+        <h2 class="text-xl font-bold mb-4 border-b pb-2">ADMIN PANEL</h2>
+        <div class="flex flex-col gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chk-godmode" onchange="game.toggleAdmin('godmode')"> God Mode
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chk-inf-ult" onchange="game.toggleAdmin('infUlt')"> Infinite Ult Charge
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chk-no-cd" onchange="game.toggleAdmin('noCooldown')"> No Cooldowns
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chk-inf-dur" onchange="game.toggleAdmin('infUltDur')"> Infinite Ult Duration
+            </label>
+            <button onclick="game.respawnDummy()" class="mt-2 bg-blue-600 px-3 py-1 rounded hover:bg-blue-500">Respawn Dummy</button>
+            <button onclick="game.fillUlt()" class="bg-red-600 px-3 py-1 rounded hover:bg-red-500">Fill Ult</button>
+            <button onclick="game.resetPlayer()" class="bg-gray-600 px-3 py-1 rounded hover:bg-gray-500">Reset Character</button>
+        </div>
+        <div class="mt-auto absolute bottom-4 text-xs text-gray-500">Press 'P' to toggle panel</div>
+    </div>
+
+    <!-- Finisher Overlay -->
+    <div id="cinematic-overlay" class="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none">
+        <h1 id="cinematic-text" class="tsb-font text-8xl text-red-600 drop-shadow-[0_0_15px_rgba(255,0,0,0.8)] scale-0 transition-transform duration-100">DEATH</h1>
+    </div>
+
+    <script>
+        // --- Configuration & Data ---
+        const CHAR_DATA = {
+            saitama: {
+                name: "STRONGEST HERO",
+                color: "#eab308", // Yellow
+                skills: ["Normal Punch", "Shove", "Uppercut", "Table Flip"],
+                ultSkills: ["SERIOUS PUNCH", "OMNI-DIRECTIONAL", "DEATH BLOW", "EARTH BREAKER"],
+                ultColor: "#ef4444"
+            },
+            garou: {
+                name: "HERO HUNTER",
+                color: "#a855f7", // Purple
+                skills: ["Flowing Water", "Hunter's Grasp", "Crushing Stream", "Whirlwind"],
+                ultSkills: ["MONSTER STRIKE", "FINAL HUNT", "GOD SLAYER", "AWAKENING"],
+                ultColor: "#581c87"
+            },
+            monster: {
+                name: "MONSTER FORM",
+                color: "#7f1d1d", // Dark Red
+                skills: ["Claw Swipe", "Roar", "Dash Attack", "Meteor Burst"],
+                ultSkills: ["CALAMITY", "EXTINCTION", "VOID FIST", "COSMIC FEAR"],
+                ultColor: "#000000"
+            },
+            genos: {
+                name: "TECH PRODIGY",
+                color: "#f97316", // Orange
+                skills: ["Machine Gun Blows", "Ignition", "Jet Dive", "Incinerate"],
+                ultSkills: ["CORE OVERLOAD", "THUNDER KICK", "BLUE DRAGON", "SELF DESTRUCT"],
+                ultColor: "#3b82f6"
+            }
+        };
+
+        // --- Engine Classes ---
+
+        class Rect {
+            constructor(x, y, w, h, color) {
+                this.x = x; this.y = y; this.w = w; this.h = h;
+                this.color = color;
+                this.vx = 0; this.vy = 0;
+                this.isGrounded = false;
+                this.facingRight = true;
+            }
+            
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                // Direction indicator
+                ctx.fillStyle = "rgba(255,255,255,0.3)";
+                if(this.facingRight) ctx.fillRect(this.x + this.w - 10, this.y + 5, 5, 5);
+                else ctx.fillRect(this.x + 5, this.y + 5, 5, 5);
+            }
+
+            updatePhysics(gravity = 0.8, friction = 0.85) {
+                this.vy += gravity;
+                this.vx *= friction;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Floor collision (Floor Y = 450)
+                if (this.y + this.h > 450) {
+                    this.y = 450 - this.h;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.isGrounded = false;
+                }
+
+                // Walls
+                if(this.x < 0) this.x = 0;
+                if(this.x + this.w > 1200) this.x = 1200 - this.w;
+            }
+
+            getCenter() {
+                return { x: this.x + this.w/2, y: this.y + this.h/2 };
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, speed, life) {
+                this.x = x; this.y = y; this.color = color;
+                this.vx = (Math.random() - 0.5) * speed;
+                this.vy = (Math.random() - 0.5) * speed;
+                this.life = life;
+                this.maxLife = life;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, 4, 4);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+
+                this.state = 'MENU'; // MENU, GAME, CINEMATIC
+                this.keys = {};
+                this.mobileInput = { left: false, right: false, up: false, down: false };
+                
+                // Entities
+                this.player = null;
+                this.dummy = null;
+                this.particles = [];
+                this.hitboxes = [];
+
+                // Game State
+                this.admin = {
+                    godmode: false,
+                    infUlt: false,
+                    noCooldown: false,
+                    infUltDur: false
+                };
+                
+                this.charType = 'saitama';
+                this.ultMeter = 0;
+                this.isUltActive = false;
+                this.ultTimer = 0;
+                this.ultMaxTime = 50 * 60; // 50 seconds * 60fps
+
+                // Inputs
+                window.addEventListener('keydown', e => this.onKey(e, true));
+                window.addEventListener('keyup', e => this.onKey(e, false));
+                // Mouse/Touch Attack
+                window.addEventListener('mousedown', (e) => {
+                    if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') this.attack();
+                });
+
+                this.setupMobileControls();
+
+                // Loop
+                this.loop = this.loop.bind(this);
+                requestAnimationFrame(this.loop);
+            }
+
+            setupMobileControls() {
+                // Check if touch device roughly
+                const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+                if (isTouch) {
+                     const controls = document.getElementById('mobile-controls');
+                     controls.classList.remove('hidden');
+                     controls.classList.add('flex');
+                }
+
+                // Helper to bind touch
+                const bindBtn = (id, key, type = 'move') => {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    
+                    const start = (e) => { e.preventDefault(); if(type === 'move') this.mobileInput[key] = true; else this.handleAction(key); };
+                    const end = (e) => { e.preventDefault(); if(type === 'move') this.mobileInput[key] = false; };
+
+                    btn.addEventListener('touchstart', start, {passive: false});
+                    btn.addEventListener('touchend', end, {passive: false});
+                    btn.addEventListener('mousedown', start); // For debug on PC
+                    btn.addEventListener('mouseup', end);
+                };
+
+                bindBtn('btn-left', 'left');
+                bindBtn('btn-right', 'right');
+                bindBtn('btn-up', 'up');
+                
+                bindBtn('btn-punch', 'attack', 'action');
+                bindBtn('btn-s1', '1', 'action');
+                bindBtn('btn-s2', '2', 'action');
+                bindBtn('btn-s3', '3', 'action');
+                bindBtn('btn-s4', '4', 'action');
+                bindBtn('btn-ult-mob', 'g', 'action');
+            }
+
+            handleAction(action) {
+                if (this.state !== 'GAME') return;
+                if (action === 'attack') this.attack();
+                if (['1','2','3','4'].includes(action)) this.useSkill(parseInt(action) - 1);
+                if (action === 'g') this.tryActivateUlt();
+            }
+
+            resize() {
+                this.canvas.width = 1200; // Fixed logic resolution
+                this.canvas.height = 600;
+                this.canvas.style.width = '100vw';
+                this.canvas.style.height = '100vh';
+            }
+
+            selectChar(type) {
+                this.charType = type;
+                this.resetGame();
+                document.getElementById('char-select').style.display = 'none';
+                this.state = 'GAME';
+                this.setupSkillsUI();
+            }
+
+            resetGame() {
+                // Clear Field
+                this.hitboxes = [];
+                this.particles = [];
+
+                // Player Setup
+                const data = CHAR_DATA[this.charType];
+                this.player = new Rect(200, 300, 50, 80, data.color);
+                this.player.maxHp = 100;
+                this.player.hp = 100;
+                this.player.cooldowns = [0, 0, 0, 0];
+                this.player.maxCooldowns = [120, 180, 240, 300]; // in frames
+                
+                // Reset Ult
+                this.ultMeter = 0;
+                this.isUltActive = false;
+                
+                // Dummy Setup
+                this.respawnDummy();
+
+                this.updateUI();
+            }
+
+            respawnDummy() {
+                this.dummy = new Rect(800, 300, 50, 80, '#888');
+                this.dummy.hp = 100;
+                this.dummy.maxHp = 100;
+                this.dummy.dead = false;
+                this.updateUI();
+            }
+
+            toggleAdmin(key) {
+                this.admin[key] = !this.admin[key];
+                if(key === 'infUlt' && this.admin[key]) this.ultMeter = 100;
+                this.updateUI();
+            }
+
+            onKey(e, down) {
+                this.keys[e.key.toLowerCase()] = down;
+                
+                if (down) {
+                    if (e.key === 'p') {
+                        const panel = document.getElementById('admin-panel');
+                        panel.classList.toggle('open');
+                    }
+                    if (this.state === 'GAME') {
+                        if (['1','2','3','4'].includes(e.key)) {
+                            this.useSkill(parseInt(e.key) - 1);
+                        }
+                        if (e.key.toLowerCase() === 'g') {
+                            this.tryActivateUlt();
+                        }
+                    }
+                }
+            }
+
+            fillUlt() {
+                this.ultMeter = 100;
+                this.updateUI();
+            }
+
+            resetPlayer() {
+                this.player.hp = 100;
+                this.player.x = 200;
+                this.player.y = 300;
+                this.player.vx = 0;
+                this.player.vy = 0;
+                this.isUltActive = false;
+                this.updateUI();
+                this.setupSkillsUI();
+            }
+
+            tryActivateUlt() {
+                if ((this.ultMeter >= 100 || this.admin.infUlt) && !this.isUltActive) {
+                    this.isUltActive = true;
+                    this.ultTimer = this.ultMaxTime;
+                    this.ultMeter = 0;
+                    this.createExplosion(this.player.x, this.player.y, CHAR_DATA[this.charType].ultColor, 50);
+                    this.setupSkillsUI(); // Update skill names to ult names
+                    
+                    // FX
+                    document.body.classList.add('shake');
+                    setTimeout(() => document.body.classList.remove('shake'), 500);
+                }
+            }
+
+            setupSkillsUI() {
+                const container = document.getElementById('skill-container');
+                container.innerHTML = '';
+                const data = CHAR_DATA[this.charType];
+                const skillNames = this.isUltActive ? data.ultSkills : data.skills;
+
+                skillNames.forEach((name, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'skill-box w-24 h-24 flex flex-col items-center justify-center rounded text-white text-center p-1';
+                    div.id = `skill-${i}`;
+                    div.innerHTML = `<span class="text-xs font-bold text-gray-400">${i+1}</span><div class="text-sm leading-tight">${name}</div><div class="cd-overlay absolute inset-0 bg-black/50 hidden flex items-center justify-center font-bold text-xl"></div>`;
+                    container.appendChild(div);
+                });
+            }
+
+            attack() {
+                if (this.state !== 'GAME') return;
+                // Basic punch
+                const reach = 60;
+                const hb = {
+                    x: this.player.facingRight ? this.player.x + this.player.w : this.player.x - reach,
+                    y: this.player.y + 10,
+                    w: reach,
+                    h: 40,
+                    life: 5,
+                    damage: this.isUltActive ? 8 : 4,
+                    color: 'rgba(255,255,255,0.5)',
+                    knockback: 10
+                };
+                this.hitboxes.push(hb);
+            }
+
+            useSkill(index) {
+                if (this.player.cooldowns[index] > 0 && !this.admin.noCooldown) return;
+
+                this.player.cooldowns[index] = this.player.maxCooldowns[index];
+                
+                const isUlt = this.isUltActive;
+                const dir = this.player.facingRight ? 1 : -1;
+                const p = this.player;
+
+                // --- SAITAMA ---
+                if (this.charType === 'saitama') {
+                    if (isUlt) {
+                        // ULTIMATE SKILLS
+                        if (index === 0) { // SERIOUS PUNCH
+                            p.vx = 0;
+                            setTimeout(() => {
+                                this.createExplosion(p.x + 100*dir, p.y, 'red', 50);
+                                this.hitboxes.push({ x: p.x + (dir > 0 ? 0 : -600), y: p.y - 50, w: 600, h: 200, life: 10, damage: 40, knockback: 30, color: 'rgba(255,0,0,0.6)' });
+                            }, 400);
+                        } else if (index === 1) { // OMNI
+                            p.x += 300 * dir; // Teleport
+                            this.hitboxes.push({ x: p.x - 100, y: p.y, w: 250, h: 100, life: 5, damage: 30, knockback: 10, color: 'rgba(255,255,255,0.5)' });
+                        } else if (index === 2) { // DEATH BLOW
+                            p.vx = 40 * dir;
+                             this.hitboxes.push({ x: p.x, y: p.y, w: 100, h: 100, life: 10, damage: 50, knockback: 40, color: 'rgba(0,0,0,0.8)' });
+                        } else if (index === 3) { // EARTH BREAKER
+                            this.triggerCinematic();
+                        }
+                    } else {
+                        // NORMAL SKILLS
+                        if (index === 0) { // Normal Punch
+                            p.vx = 20 * dir;
+                            this.hitboxes.push({ x: p.x, y: p.y, w: 100, h: 80, life: 8, damage: 10, knockback: 15, color: 'rgba(255,255,0,0.3)' });
+                        } else if (index === 1) { // Shove
+                            this.hitboxes.push({ x: p.x + (dir*20), y: p.y, w: 80, h: 80, life: 5, damage: 5, knockback: 30, color: 'rgba(255,255,255,0.3)' });
+                        } else if (index === 2) { // Uppercut
+                            p.vy = -10;
+                            this.hitboxes.push({ x: p.x, y: p.y - 50, w: 80, h: 150, life: 8, damage: 15, knockback: 5, vy: -15, color: 'rgba(255,200,0,0.3)' });
+                        } else if (index === 3) { // Table Flip
+                            p.vy = -15;
+                            setTimeout(() => {
+                                this.hitboxes.push({ x: p.x, y: p.y + 50, w: 300, h: 50, life: 20, damage: 20, knockback: 20, color: 'rgba(100,100,100,0.5)', vx: 15 * dir });
+                            }, 300);
+                        }
+                    }
+                }
+                
+                // --- GAROU ---
+                else if (this.charType === 'garou') {
+                    if (isUlt) {
+                        if (index === 3) this.triggerCinematic();
+                        else {
+                            // Generic Ult Strikes for Garou
+                            p.vx = 30 * dir;
+                            this.hitboxes.push({ x: p.x - 50, y: p.y - 50, w: 200, h: 200, life: 10, damage: 35, knockback: 25, color: 'rgba(120,0,255,0.5)' });
+                        }
+                    } else {
+                        if (index === 0) { // Flowing Water
+                             p.vx = 25 * dir;
+                             this.hitboxes.push({ x: p.x, y: p.y, w: 100, h: 80, life: 12, damage: 12, knockback: 10, color: 'rgba(0,100,255,0.3)' });
+                        } else if (index === 1) { // Hunter Grasp (Pull)
+                            this.hitboxes.push({ x: p.x + (dir*50), y: p.y, w: 150, h: 80, life: 5, damage: 8, knockback: -10, color: 'rgba(0,0,255,0.2)' });
+                        } else if (index === 2) { // Crushing Stream
+                             p.vy = -20; p.vx = 10 * dir;
+                             setTimeout(() => {
+                                 p.vy = 25;
+                                 this.hitboxes.push({ x: p.x - 50, y: p.y, w: 200, h: 100, life: 10, damage: 18, knockback: 0, vy: 10, color: 'rgba(0,255,255,0.4)' });
+                             }, 300);
+                        } else if (index === 3) { // Whirlwind
+                            this.hitboxes.push({ x: p.x - 50, y: p.y - 20, w: 150, h: 120, life: 20, damage: 15, knockback: 15, color: 'rgba(200,200,255,0.3)' });
+                        }
+                    }
+                }
+
+                // --- GENOS ---
+                else if (this.charType === 'genos') {
+                    if (isUlt) {
+                        if (index === 3) this.triggerCinematic();
+                        else {
+                            // Genos Ult
+                            this.createExplosion(p.x + 100*dir, p.y, 'orange', 40);
+                            this.hitboxes.push({ x: p.x, y: p.y, w: 400, h: 100, life: 10, damage: 30, knockback: 30, color: 'rgba(255,165,0,0.6)', vx: 20*dir });
+                        }
+                    } else {
+                        if (index === 0) { // Machine Gun
+                             for(let i=0; i<5; i++) {
+                                 setTimeout(() => {
+                                     this.hitboxes.push({ x: p.x + (dir*50), y: p.y + Math.random()*50, w: 60, h: 40, life: 3, damage: 2, knockback: 2, color: 'rgba(255,200,0,0.5)' });
+                                 }, i * 50);
+                             }
+                        } else if (index === 1) { // Ignition
+                            p.vx = 35 * dir;
+                            this.hitboxes.push({ x: p.x, y: p.y, w: 100, h: 80, life: 10, damage: 10, knockback: 15, color: 'rgba(255,100,0,0.4)' });
+                        } else if (index === 2) { // Jet Dive
+                             p.y -= 200; p.vx = 15 * dir;
+                             setTimeout(() => { p.vy = 30; }, 100);
+                             setTimeout(() => {
+                                 this.hitboxes.push({ x: p.x - 50, y: p.y, w: 150, h: 100, life: 10, damage: 20, knockback: 10, color: 'rgba(255,50,0,0.4)' });
+                             }, 300);
+                        } else if (index === 3) { // Incinerate
+                            this.hitboxes.push({ x: p.x + (dir*20), y: p.y + 20, w: 300, h: 60, life: 15, damage: 18, knockback: 20, color: 'rgba(255,150,0,0.5)' });
+                        }
+                    }
+                }
+                
+                // --- MONSTER ---
+                else {
+                    if (isUlt) {
+                        if (index === 3) this.triggerCinematic();
+                        else {
+                             p.vx = 10*dir;
+                             this.hitboxes.push({ x: p.x - 50, y: p.y - 100, w: 200, h: 250, life: 15, damage: 40, knockback: 40, color: 'rgba(100,0,0,0.7)' });
+                        }
+                    } else {
+                        if (index === 0) { // Claw
+                            this.hitboxes.push({ x: p.x + (dir*20), y: p.y - 20, w: 100, h: 120, life: 8, damage: 12, knockback: 10, color: 'rgba(200,0,0,0.3)' });
+                        } else if (index === 1) { // Roar
+                             this.createExplosion(p.x, p.y, 'white', 20);
+                             this.hitboxes.push({ x: p.x - 100, y: p.y - 50, w: 250, h: 200, life: 10, damage: 0, knockback: 30, color: 'rgba(255,255,255,0.1)' });
+                        } else if (index === 2) { // Dash
+                             p.vx = 30 * dir;
+                             this.hitboxes.push({ x: p.x, y: p.y, w: 120, h: 80, life: 10, damage: 15, knockback: 20, color: 'rgba(150,0,0,0.4)' });
+                        } else if (index === 3) { // Meteor
+                             this.hitboxes.push({ x: p.x + (dir*150), y: 0, w: 80, h: 80, life: 40, damage: 25, knockback: 10, color: 'rgba(50,0,0,1)', vy: 15 });
+                        }
+                    }
+                }
+            }
+
+            triggerCinematic() {
+                this.state = 'CINEMATIC';
+                const overlay = document.getElementById('cinematic-overlay');
+                const text = document.getElementById('cinematic-text');
+                
+                // Play Sound effect simulation (Shake)
+                document.body.classList.add('shake');
+
+                // Visual sequence
+                let step = 0;
+                const cineInterval = setInterval(() => {
+                    step++;
+                    if(step == 1) {
+                         overlay.style.opacity = 1; // Blackout
+                    }
+                    if(step == 10) {
+                        text.innerText = "DEATH"; // Show Text
+                        text.style.transform = "scale(1)";
+                    }
+                    if(step == 30) {
+                        // Kill trigger
+                        if (this.dummy && !this.dummy.dead) {
+                            this.dummy.hp = 0;
+                            this.checkEnemyDeath();
+                            this.createExplosion(this.dummy.x, this.dummy.y, 'red', 100);
+                        }
+                    }
+                    if(step == 60) {
+                        text.style.transform = "scale(0)";
+                        overlay.style.opacity = 0;
+                        this.state = 'GAME';
+                        document.body.classList.remove('shake');
+                        clearInterval(cineInterval);
+                    }
+                }, 30); // 30ms steps
+            }
+
+            createExplosion(x, y, color, count) {
+                for(let i=0; i<count; i++) {
+                    this.particles.push(new Particle(x, y, color, 10, 30));
+                }
+            }
+
+            checkEnemyDeath() {
+                if (this.dummy.hp <= 0 && !this.dummy.dead) {
+                    this.dummy.dead = true;
+                    this.dummy.hp = 0;
+                    this.createExplosion(this.dummy.x, this.dummy.y, '#fff', 50);
+                    
+                    // Ult Charge gain
+                    if (!this.isUltActive) {
+                        this.ultMeter = Math.min(100, this.ultMeter + 20);
+                    }
+
+                    // Respawn logic
+                    setTimeout(() => {
+                        this.respawnDummy();
+                    }, 3000);
+                }
+            }
+
+            updateUI() {
+                if(!this.player) return;
+                
+                // HP Bars
+                document.getElementById('hp-bar').style.width = `${(this.player.hp / this.player.maxHp) * 100}%`;
+                if(this.dummy) {
+                    document.getElementById('enemy-hp-bar').style.width = `${(this.dummy.hp / this.dummy.maxHp) * 100}%`;
+                }
+                
+                // Ult Bar
+                document.getElementById('ult-bar').style.width = `${this.ultMeter}%`;
+                
+                // Skills Cooldowns
+                for(let i=0; i<4; i++) {
+                    const el = document.getElementById(`skill-${i}`);
+                    if(el) {
+                        if (this.player.cooldowns[i] > 0) {
+                            el.classList.add('cooldown');
+                            el.classList.remove('ready');
+                            el.querySelector('.cd-overlay').classList.remove('hidden');
+                            el.querySelector('.cd-overlay').innerText = Math.ceil(this.player.cooldowns[i] / 60);
+                        } else {
+                            el.classList.remove('cooldown');
+                            el.classList.add('ready');
+                            el.querySelector('.cd-overlay').classList.add('hidden');
+                        }
+                        if (this.isUltActive) el.classList.add('active');
+                        else el.classList.remove('active');
+                    }
+                }
+                
+                document.getElementById('char-name').innerText = CHAR_DATA[this.charType].name;
+            }
+
+            loop() {
+                // Clear
+                this.ctx.fillStyle = '#222';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw Floor
+                this.ctx.fillStyle = '#333';
+                this.ctx.fillRect(0, 450, 1200, 150);
+                this.ctx.fillStyle = '#444'; // Detail
+                for(let i=0; i<1200; i+=100) this.ctx.fillRect(i, 450, 5, 150);
+
+                if (this.state === 'MENU') {
+                    requestAnimationFrame(this.loop);
+                    return;
+                }
+
+                if (this.state === 'CINEMATIC') {
+                    // Draw Cinematic Slash
+                    this.ctx.fillStyle = 'black';
+                    this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
+                    
+                    this.ctx.strokeStyle = 'white';
+                    this.ctx.lineWidth = 5;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, 600);
+                    this.ctx.lineTo(1200, 0);
+                    this.ctx.stroke();
+                    
+                    // Random red flashes
+                    if(Math.random() > 0.8) {
+                        this.ctx.fillStyle = 'red';
+                        this.ctx.fillRect(0,0,this.canvas.width, this.canvas.height);
+                    }
+                    
+                    requestAnimationFrame(this.loop);
+                    return;
+                }
+
+                // Player Physics & Logic
+                if (this.state === 'GAME') {
+                    // Movement
+                    const speed = this.isUltActive ? 10 : 6;
+                    if (this.keys['d'] || this.keys['arrowright'] || this.mobileInput.right) {
+                        this.player.vx = speed;
+                        this.player.facingRight = true;
+                    }
+                    if (this.keys['a'] || this.keys['arrowleft'] || this.mobileInput.left) {
+                        this.player.vx = -speed;
+                        this.player.facingRight = false;
+                    }
+                    // Jump
+                    if ((this.keys['w'] || this.keys['arrowup'] || this.keys[' '] || this.mobileInput.up) && this.player.isGrounded) {
+                        this.player.vy = -18;
+                    }
+
+                    // Ult Logic
+                    if (this.admin.infUlt) this.ultMeter = 100;
+                    if (this.isUltActive) {
+                        if (!this.admin.infUltDur) {
+                            this.ultTimer--;
+                            // Ult Bar drains as timer
+                            const pct = (this.ultTimer / this.ultMaxTime) * 100;
+                            document.getElementById('ult-bar').style.width = `${pct}%`;
+
+                            if (this.ultTimer <= 0) {
+                                this.isUltActive = false;
+                                this.ultMeter = 0;
+                                this.setupSkillsUI(); // Revert skills
+                            }
+                        } else {
+                            document.getElementById('ult-bar').style.width = `100%`;
+                        }
+                        
+                        // Aura effect
+                        if (Math.random() > 0.5) {
+                            this.particles.push(new Particle(
+                                this.player.x + Math.random()*this.player.w, 
+                                this.player.y + Math.random()*this.player.h, 
+                                CHAR_DATA[this.charType].ultColor, 
+                                2, 20
+                            ));
+                        }
+                    }
+
+                    // Cooldowns
+                    this.player.cooldowns = this.player.cooldowns.map(c => c > 0 ? c - 1 : 0);
+                }
+
+                // Physics Updates
+                this.player.updatePhysics();
+                if (this.dummy && !this.dummy.dead) {
+                    this.dummy.updatePhysics();
+                    // Simple AI: Face player
+                    this.dummy.facingRight = this.player.x > this.dummy.x;
+                }
+
+                // Hitbox Logic
+                for (let i = this.hitboxes.length - 1; i >= 0; i--) {
+                    let hb = this.hitboxes[i];
+                    
+                    // Draw Hitbox (Debug style or effect)
+                    this.ctx.fillStyle = hb.color;
+                    this.ctx.fillRect(hb.x, hb.y, hb.w, hb.h);
+
+                    // Move if it has velocity
+                    if(hb.vx) hb.x += hb.vx;
+
+                    // Collision with Dummy
+                    if (this.dummy && !this.dummy.dead &&
+                        hb.x < this.dummy.x + this.dummy.w &&
+                        hb.x + hb.w > this.dummy.x &&
+                        hb.y < this.dummy.y + this.dummy.h &&
+                        hb.y + hb.h > this.dummy.y) {
+                        
+                        // Hit!
+                        this.dummy.hp -= hb.damage;
+                        this.createExplosion(this.dummy.x + this.dummy.w/2, this.dummy.y + this.dummy.h/2, '#fff', 10);
+                        
+                        // Knockback
+                        const dir = hb.x < this.dummy.x ? 1 : -1;
+                        this.dummy.vx = hb.knockback * dir;
+                        this.dummy.vy = -5; // Small pop up
+
+                        // Ult Charge
+                        if (!this.isUltActive) {
+                            this.ultMeter = Math.min(100, this.ultMeter + 5);
+                        }
+
+                        this.checkEnemyDeath();
+                        
+                        // Remove hitbox after hit? (Or let it pierce)
+                        // For this demo, remove single hit box types
+                        hb.life = 0; 
+                    }
+
+                    hb.life--;
+                    if (hb.life <= 0) this.hitboxes.splice(i, 1);
+                }
+
+                // Draw Entities
+                this.player.draw(this.ctx);
+                if (this.dummy && !this.dummy.dead) this.dummy.draw(this.ctx);
+
+                // Particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    let p = this.particles[i];
+                    p.update();
+                    p.draw(this.ctx);
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                }
+
+                // UI Update every frame
+                this.updateUI();
+
+                requestAnimationFrame(this.loop);
+            }
+        }
+
+        const game = new Game();
+
+    </script>
+</body>
+</html>

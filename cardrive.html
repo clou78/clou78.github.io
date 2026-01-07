@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DRIFT MANIA V2</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { display: block; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .pointer-events-auto { pointer-events: auto; }
+        .drift-text { text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+        #joystick-container { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; display: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
+        .btn-game { background: rgba(0,0,0,0.6); border: 2px solid #fff; color: #fff; padding: 10px 20px; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
+        .btn-game:hover { background: #fff; color: #000; }
+        @media (pointer: coarse) { #joystick-container { display: block; } }
+        #orientation-warning { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; color: white; justify-content: center; align-items: center; text-align: center; }
+        @media screen and (orientation: portrait) { #orientation-warning { display: flex; } }
+    </style>
+</head>
+<body>
+
+<div id="orientation-warning">
+    <div class="p-6">
+        <h1 class="text-2xl font-bold mb-4">PLEASE ROTATE YOUR DEVICE</h1>
+        <p>Landscape mode is required for the best drifting experience.</p>
+    </div>
+</div>
+
+<div id="ui-layer" class="flex flex-col">
+    <!-- Main Menu -->
+    <div id="main-menu" class="pointer-events-auto flex flex-col items-center justify-center h-full bg-black/80 z-50">
+        <h1 class="text-6xl font-black italic text-white mb-8 tracking-tighter">DRIFT <span class="text-red-600">MANIA</span> V2</h1>
+        
+        <div class="flex gap-8 mb-8">
+            <div class="text-center">
+                <h2 class="text-white font-bold mb-4">SELECT CAR</h2>
+                <div class="flex gap-4">
+                    <button onclick="selectCar(0)" id="car-btn-0" class="btn-game border-red-600 bg-red-600">GT-R R34</button>
+                    <button onclick="selectCar(1)" id="car-btn-1" class="btn-game">AE86</button>
+                </div>
+            </div>
+            <div class="text-center">
+                <h2 class="text-white font-bold mb-4">SELECT MAP</h2>
+                <div class="flex gap-4">
+                    <button onclick="selectMap(0)" id="map-btn-0" class="btn-game border-red-600 bg-red-600">DOWNTOWN</button>
+                    <button onclick="selectMap(1)" id="map-btn-1" class="btn-game">DOCKS</button>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="startGame()" class="px-12 py-4 bg-white text-black font-black text-2xl rounded-full hover:scale-110 transition-transform">START ENGINE</button>
+        
+        <div class="mt-8 text-gray-400 text-sm">
+            PC: WASD / Arrows to Drive | SPACE for Handbrake<br>
+            MOBILE: Virtual Controls
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden h-full w-full flex flex-col justify-between p-6">
+        <div class="flex justify-between items-start">
+            <div class="bg-black/50 p-4 rounded-lg border-l-4 border-red-600">
+                <div id="speedometer" class="text-4xl font-black text-white italic">0 <span class="text-sm">KM/H</span></div>
+                <div id="drift-score" class="text-red-500 font-bold">DRIFT: 0</div>
+            </div>
+            <div class="pointer-events-auto">
+                <button onclick="toggleFullscreen()" class="btn-game text-xs">FULLSCREEN</button>
+                <button onclick="location.reload()" class="btn-game text-xs">EXIT</button>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="flex justify-end items-end gap-4 pointer-events-auto lg:hidden">
+            <div class="flex flex-col gap-2">
+                <button id="btn-up" class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white text-2xl font-bold select-none">▲</button>
+                <button id="btn-down" class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-white text-2xl font-bold select-none">▼</button>
+            </div>
+            <button id="btn-handbrake" class="w-20 h-20 bg-red-600/50 rounded-lg flex items-center justify-center text-white text-xs font-bold select-none">HANDBRAKE</button>
+        </div>
+    </div>
+</div>
+
+<div id="joystick-container">
+    <div id="joystick-knob"></div>
+</div>
+
+<script>
+/** GAME CONSTANTS & STATE **/
+let scene, camera, renderer, clock;
+let car, carPhysics = {
+    velocity: new THREE.Vector3(),
+    acceleration: 0,
+    steering: 0,
+    rotation: 0,
+    driftFactor: 0,
+    isBraking: false
+};
+let map;
+let particles = [];
+let skidMarks = [];
+let keys = {};
+let gameState = 'menu';
+let currentCarIndex = 0;
+let currentMapIndex = 0;
+let driftScore = 0;
+
+// Configs
+const CARS = [
+    { name: 'GT-R R34', color: 0x3366ff, acceleration: 0.5, topSpeed: 1.2, handling: 0.04, drift: 0.96 },
+    { name: 'AE86', color: 0xffffff, acceleration: 0.4, topSpeed: 0.9, handling: 0.06, drift: 0.98 }
+];
+
+const MAPS = [
+    { name: 'DOWNTOWN', color: 0x222222, gridColor: 0x444444 },
+    { name: 'DOCKS', color: 0x111111, gridColor: 0xccaa44 }
+];
+
+/** INITIALIZATION **/
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050505);
+    scene.fog = new THREE.Fog(0x050505, 50, 150);
+
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.position.set(50, 100, 50);
+    sun.castShadow = true;
+    sun.shadow.camera.left = -100;
+    sun.shadow.camera.right = 100;
+    sun.shadow.camera.top = 100;
+    sun.shadow.camera.bottom = -100;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    scene.add(sun);
+
+    createSkybox();
+
+    clock = new THREE.Clock();
+
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    initMobileControls();
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/** CAR & MAP CREATION **/
+function createCar(config) {
+    if (car) scene.remove(car);
+    
+    const group = new THREE.Group();
+    
+    // Body
+    const bodyGeom = new THREE.BoxGeometry(2, 0.8, 4);
+    const bodyMat = new THREE.MeshPhongMaterial({ color: config.color });
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    group.add(body);
+
+    // Cabin
+    const cabinGeom = new THREE.BoxGeometry(1.6, 0.6, 2);
+    const cabin = new THREE.Mesh(cabinGeom, bodyMat);
+    cabin.position.y = 1.3;
+    cabin.position.z = -0.2;
+    group.add(cabin);
+
+    // Wheels
+    const wheelGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
+    const wheelMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+    const wheelPositions = [
+        { x: -1, y: 0.4, z: 1.5 }, { x: 1, y: 0.4, z: 1.5 },
+        { x: -1, y: 0.4, z: -1.5 }, { x: 1, y: 0.4, z: -1.5 }
+    ];
+
+    wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeom, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(pos.x, pos.y, pos.z);
+        group.add(wheel);
+    });
+
+    // Lights
+    const headLightGeom = new THREE.PlaneGeometry(0.6, 0.3);
+    const headLightMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+    const leftLight = new THREE.Mesh(headLightGeom, headLightMat);
+    leftLight.position.set(-0.6, 0.6, 2.01);
+    group.add(leftLight);
+    const rightLight = leftLight.clone();
+    rightLight.position.x = 0.6;
+    group.add(rightLight);
+
+    const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const backLeft = new THREE.Mesh(headLightGeom, tailLightMat);
+    backLeft.position.set(-0.6, 0.6, -2.01);
+    group.add(backLeft);
+    const backRight = backLeft.clone();
+    backRight.position.x = 0.6;
+    group.add(backRight);
+
+    scene.add(group);
+    return group;
+}
+
+function createMap(config) {
+    if (map) scene.remove(map);
+    
+    const group = new THREE.Group();
+    
+    const floorGeom = new THREE.PlaneGeometry(1000, 1000);
+    const floorMat = new THREE.MeshPhongMaterial({ color: config.color });
+    const floor = new THREE.Mesh(floorGeom, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    group.add(floor);
+
+    const grid = new THREE.GridHelper(1000, 100, config.gridColor, config.gridColor);
+    grid.position.y = 0.05;
+    group.add(grid);
+
+    // Add some obstacles/decorations based on map
+    if (config.name === 'DOWNTOWN') {
+        for(let i=0; i<40; i++) {
+            const h = 5 + Math.random() * 20;
+            const bGeom = new THREE.BoxGeometry(8, h, 8);
+            const bMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const b = new THREE.Mesh(bGeom, bMat);
+            b.position.set((Math.random()-0.5)*200, h/2, (Math.random()-0.5)*200);
+            if (b.position.length() < 20) b.position.x += 30;
+            b.castShadow = true;
+            b.receiveShadow = true;
+            group.add(b);
+
+            // Neon Windows
+            if (Math.random() > 0.5) {
+                const winGeom = new THREE.PlaneGeometry(1, 1);
+                const winMat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x00ffff : 0xff00ff });
+                const win = new THREE.Mesh(winGeom, winMat);
+                win.position.set(b.position.x, b.position.y + (Math.random()*h/2), b.position.z + 4.01);
+                group.add(win);
+            }
+        }
+    } else {
+        // Docks: Containers
+        for(let i=0; i<60; i++) {
+            const bGeom = new THREE.BoxGeometry(4, 4, 10);
+            const bMat = new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xaa4444 : 0x4444aa });
+            const b = new THREE.Mesh(bGeom, bMat);
+            b.position.set((Math.random()-0.5)*250, 2, (Math.random()-0.5)*250);
+            if (b.position.length() < 20) b.position.x += 30;
+            b.castShadow = true;
+            b.receiveShadow = true;
+            group.add(b);
+        }
+    }
+
+    scene.add(group);
+    return group;
+}
+
+/** PHYSICS LOGIC **/
+function updatePhysics(delta) {
+    const config = CARS[currentCarIndex];
+    
+    // Controls
+    let inputAcc = 0;
+    if (keys['KeyW'] || keys['ArrowUp'] || mobileControls.up) inputAcc = 1;
+    if (keys['KeyS'] || keys['ArrowDown'] || mobileControls.down) inputAcc = -1;
+    
+    let inputSteer = 0;
+    if (keys['KeyA'] || keys['ArrowLeft'] || mobileControls.steer < -0.2) inputSteer = 1;
+    if (keys['KeyD'] || keys['ArrowRight'] || mobileControls.steer > 0.2) inputSteer = -1;
+    
+    // If using joystick, use precise value
+    if (Math.abs(mobileControls.steer) > 0.1) {
+        inputSteer = -mobileControls.steer;
+    }
+
+    const handbrake = keys['Space'] || mobileControls.handbrake;
+
+    // Acceleration & Friction
+    if (inputAcc !== 0) {
+        carPhysics.acceleration += inputAcc * config.acceleration * delta;
+    } else {
+        carPhysics.acceleration *= 0.95; // Drag
+    }
+
+    // Speed limit
+    const speedLimit = handbrake ? config.topSpeed * 0.5 : config.topSpeed;
+    carPhysics.acceleration = Math.max(-speedLimit, Math.min(speedLimit, carPhysics.acceleration));
+
+    // Steering & Drift
+    const currentSpeed = carPhysics.acceleration;
+    const isDrifting = (Math.abs(inputSteer) > 0.5 && Math.abs(currentSpeed) > 0.3) || handbrake;
+    
+    if (isDrifting) {
+        carPhysics.driftFactor = THREE.MathUtils.lerp(carPhysics.driftFactor, config.drift, 0.1);
+        driftScore += Math.floor(Math.abs(carPhysics.driftFactor * currentSpeed * 10));
+    } else {
+        carPhysics.driftFactor = THREE.MathUtils.lerp(carPhysics.driftFactor, 0, 0.1);
+        if (driftScore > 0) driftScore -= 1;
+    }
+
+    // Rotation
+    const turnSpeed = config.handling * (currentSpeed * 2) * (1 + carPhysics.driftFactor * 2);
+    carPhysics.rotation += inputSteer * turnSpeed;
+
+    // Movement Vector
+    const moveDir = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), carPhysics.rotation);
+    
+    // Apply drift offset (slide)
+    if (carPhysics.driftFactor > 0.1) {
+        const slideDir = new THREE.Vector3(inputSteer, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), carPhysics.rotation);
+        moveDir.add(slideDir.multiplyScalar(carPhysics.driftFactor * 0.5));
+    }
+
+    // Collision Detection (Simple Radius)
+    const nextPos = car.position.clone().add(moveDir.clone().multiplyScalar(carPhysics.acceleration));
+    let collided = false;
+    map.children.forEach(obj => {
+        if (obj.geometry && obj.geometry.type === 'BoxGeometry' && obj.position.y > 0.1) {
+            const dx = nextPos.x - obj.position.x;
+            const dz = nextPos.z - obj.position.z;
+            const boxW = obj.geometry.parameters.width / 2 + 1.5;
+            const boxD = obj.geometry.parameters.depth / 2 + 1.5;
+            if (Math.abs(dx) < boxW && Math.abs(dz) < boxD) {
+                collided = true;
+            }
+        }
+    });
+
+    if (!collided) {
+        car.position.copy(nextPos);
+    } else {
+        carPhysics.acceleration *= -0.5; // Bounce back
+    }
+
+    car.rotation.y = carPhysics.rotation;
+    
+    // Suspension / Tilt effect
+    car.children[0].rotation.z = THREE.MathUtils.lerp(car.children[0].rotation.z, -inputSteer * 0.1, 0.1);
+    car.children[0].rotation.x = THREE.MathUtils.lerp(car.children[0].rotation.x, carPhysics.acceleration * 0.1, 0.1);
+
+    // Visuals
+    document.getElementById('speedometer').innerHTML = `${Math.abs(Math.round(carPhysics.acceleration * 250))} <span class="text-sm">KM/H</span>`;
+    const scoreEl = document.getElementById('drift-score');
+    scoreEl.innerText = `DRIFT: ${Math.floor(driftScore)}`;
+    scoreEl.style.transform = isDrifting ? `scale(${1 + carPhysics.driftFactor})` : 'scale(1)';
+    scoreEl.style.color = isDrifting ? '#ff3333' : '#ffffff';
+    
+    // Particles (Smoke) & Skidmarks
+    if (isDrifting && Math.abs(currentSpeed) > 0.1) {
+        createSmoke();
+        if (Math.random() > 0.5) createSkidMark();
+    }
+}
+
+function createSkidMark() {
+    const geom = new THREE.PlaneGeometry(0.4, 0.8);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+    const mark = new THREE.Mesh(geom, mat);
+    mark.rotation.x = -Math.PI / 2;
+    mark.position.copy(car.position);
+    mark.position.y = 0.06;
+    mark.rotation.z = car.rotation.y;
+    scene.add(mark);
+    skidMarks.push({ mesh: mark, life: 5.0 });
+    
+    if (skidMarks.length > 200) {
+        const old = skidMarks.shift();
+        scene.remove(old.mesh);
+    }
+}
+
+function updateSkidMarks(delta) {
+    for (let i = skidMarks.length - 1; i >= 0; i--) {
+        const s = skidMarks[i];
+        s.life -= delta;
+        if (s.life < 1) s.mesh.material.opacity = s.life * 0.3;
+        if (s.life <= 0) {
+            scene.remove(s.mesh);
+            skidMarks.splice(i, 1);
+        }
+    }
+}
+
+function createSkybox() {
+    const skyGeo = new THREE.SphereGeometry(200, 32, 32);
+    const skyMat = new THREE.MeshBasicMaterial({ color: 0x0a0a1a, side: THREE.BackSide });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+
+    // Add stars
+    const starGeom = new THREE.BufferGeometry();
+    const starCoords = [];
+    for(let i=0; i<1000; i++) {
+        starCoords.push((Math.random()-0.5)*400, Math.random()*200, (Math.random()-0.5)*400);
+    }
+    starGeom.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5 });
+    const stars = new THREE.Points(starGeom, starMat);
+    scene.add(stars);
+}
+
+function createSmoke() {
+    const geom = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
+    const p = new THREE.Mesh(geom, mat);
+    p.position.copy(car.position);
+    p.position.y = 0.2;
+    scene.add(p);
+    particles.push({ mesh: p, life: 1.0 });
+}
+
+function updateParticles(delta) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= delta * 2;
+        p.mesh.scale.multiplyScalar(1.05);
+        p.mesh.material.opacity = p.life;
+        p.mesh.position.y += 0.05;
+        if (p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+        }
+    }
+}
+
+/** CAMERA **/
+function updateCamera() {
+    if (!car) return;
+    const offset = new THREE.Vector3(0, 8, -15).applyAxisAngle(new THREE.Vector3(0, 1, 0), carPhysics.rotation);
+    const targetPos = car.position.clone().add(offset);
+    camera.position.lerp(targetPos, 0.1);
+    camera.lookAt(car.position);
+}
+
+/** MOBILE CONTROLS **/
+const mobileControls = { up: false, down: false, steer: 0, handbrake: false };
+function initMobileControls() {
+    const joyContainer = document.getElementById('joystick-container');
+    const joyKnob = document.getElementById('joystick-knob');
+    let active = false;
+
+    const handleMove = (e) => {
+        if (!active) return;
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = joyContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const x = touch.clientX - centerX;
+        const dist = Math.min(x, rect.width / 2);
+        const normalizedX = dist / (rect.width / 2);
+        joyKnob.style.left = `calc(50% + ${dist}px)`;
+        mobileControls.steer = normalizedX;
+    };
+
+    joyContainer.addEventListener('touchstart', (e) => { active = true; handleMove(e); });
+    window.addEventListener('touchmove', handleMove);
+    window.addEventListener('touchend', () => { 
+        active = false; 
+        joyKnob.style.left = '50%'; 
+        mobileControls.steer = 0;
+    });
+
+    // Buttons
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnHB = document.getElementById('btn-handbrake');
+
+    btnUp.onpointerdown = () => mobileControls.up = true;
+    btnUp.onpointerup = () => mobileControls.up = false;
+    btnDown.onpointerdown = () => mobileControls.down = true;
+    btnDown.onpointerup = () => mobileControls.down = false;
+    btnHB.onpointerdown = () => mobileControls.handbrake = true;
+    btnHB.onpointerup = () => mobileControls.handbrake = false;
+}
+
+/** UI HANDLERS **/
+function selectCar(index) {
+    currentCarIndex = index;
+    document.getElementById('car-btn-0').classList.remove('border-red-600', 'bg-red-600');
+    document.getElementById('car-btn-1').classList.remove('border-red-600', 'bg-red-600');
+    document.getElementById('car-btn-' + index).classList.add('border-red-600', 'bg-red-600');
+}
+
+function selectMap(index) {
+    currentMapIndex = index;
+    document.getElementById('map-btn-0').classList.remove('border-red-600', 'bg-red-600');
+    document.getElementById('map-btn-1').classList.remove('border-red-600', 'bg-red-600');
+    document.getElementById('map-btn-' + index).classList.add('border-red-600', 'bg-red-600');
+}
+
+function startGame() {
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    
+    car = createCar(CARS[currentCarIndex]);
+    map = createMap(MAPS[currentMapIndex]);
+    
+    carPhysics.position = new THREE.Vector3(0, 0, 0);
+    carPhysics.acceleration = 0;
+    carPhysics.rotation = 0;
+    
+    gameState = 'playing';
+}
+
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+/** GAME LOOP **/
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+
+    if (gameState === 'playing') {
+        updatePhysics(delta);
+        updateParticles(delta);
+        updateSkidMarks(delta);
+        updateCamera();
+        
+        // Dynamic FOV
+        camera.fov = 70 + (Math.abs(carPhysics.acceleration) * 20);
+        camera.updateProjectionMatrix();
+    }
+
+    renderer.render(scene, camera);
+}
+
+// Start
+init();
+animate();
+
+</script>
+</body>
+</html>
