@@ -2,209 +2,2082 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Нейро Рич 2.0</title>
-    <link rel="icon" href="image/logo.jpg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MiniCraft 3D</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #0a0a0a, #1a1a00, #2a2a00); /* Чёрно-жёлтый градиент */
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Segoe UI', sans-serif;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; touch-action: none; font-family: 'Segoe UI', sans-serif; background: #000; }
+        
+        #game-container { width: 100vw; height: 100vh; }
+        
+        .minecraft-btn {
+            background: linear-gradient(180deg, #7a7a7a 0%, #5a5a5a 50%, #4a4a4a 100%);
+            border: 3px solid #000;
+            border-bottom-width: 4px;
             color: white;
+            text-shadow: 2px 2px 0 #3f3f3f;
+            font-size: 18px;
+            padding: 12px 40px;
+            cursor: pointer;
+            transition: all 0.1s;
+            min-width: 250px;
         }
-
-        /* Анимированные частицы на фоне */
-        body::before {
+        
+        .minecraft-btn:hover {
+            background: linear-gradient(180deg, #9a9aff 0%, #7a7aff 50%, #6a6aff 100%);
+        }
+        
+        .minecraft-btn:active { transform: scale(0.95); }
+        
+        #menu {
+            background: linear-gradient(180deg, #78a7ff 0%, #5d94e0 100%);
+        }
+        
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #crosshair::before, #crosshair::after {
             content: '';
+            position: absolute;
+            background: white;
+            mix-blend-mode: difference;
+        }
+        
+        #crosshair::before { width: 2px; height: 24px; left: 11px; }
+        #crosshair::after { width: 24px; height: 2px; top: 11px; }
+        
+        .touch-control {
+            position: fixed;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            pointer-events: auto;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+        
+        #joystick-container {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        
+        #joystick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        #look-area {
             position: fixed;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(255, 193, 7, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(255, 235, 59, 0.05) 0%, transparent 40%);
-            pointer-events: none;
-            z-index: 0;
+            right: 0;
+            width: 50%;
+            height: 70%;
+            z-index: 50;
         }
-
-        .menu-box {
-            background: rgba(0, 0, 0, 0.7); /* Тёмный полупрозрачный фон */
-            backdrop-filter: blur(15px);
-            padding: 40px;
-            border-radius: 20px;
-            border: 2px solid rgba(255, 215, 0, 0.3); /* Золотая рамка */
-            width: 350px;
-            text-align: center;
-            box-shadow: 
-                0 15px 35px rgba(0, 0, 0, 0.8),
-                0 0 30px rgba(255, 215, 0, 0.2),
-                inset 0 0 30px rgba(255, 215, 0, 0.05);
+        
+        .hotbar {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2px;
+            background: rgba(0,0,0,0.7);
+            padding: 4px;
+            border-radius: 4px;
+            z-index: 200;
+        }
+        
+        .hotbar-slot {
+            width: 45px;
+            height: 45px;
+            background: rgba(80,80,80,0.8);
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             position: relative;
-            z-index: 1;
         }
-
-        /* Логотип */
-        .logo {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            border: 3px solid #ffd700;
-            box-shadow: 
-                0 0 20px rgba(255, 215, 0, 0.5),
-                0 0 40px rgba(255, 215, 0, 0.3);
-            object-fit: cover;
-            animation: pulse 2s ease-in-out infinite;
+        
+        .hotbar-slot.selected {
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
         }
-
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 
-                    0 0 20px rgba(255, 215, 0, 0.5),
-                    0 0 40px rgba(255, 215, 0, 0.3);
-            }
-            50% {
-                box-shadow: 
-                    0 0 30px rgba(255, 215, 0, 0.8),
-                    0 0 60px rgba(255, 215, 0, 0.5);
-            }
+        
+        .hotbar-slot .block-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 3px;
         }
-
-        h2 {
-            margin-top: 0;
-            margin-bottom: 30px;
-            font-size: 28px;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            background: linear-gradient(90deg, #ffd700, #ffec8b, #ffd700);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: none;
-            animation: shimmer 3s ease-in-out infinite;
+        
+        .hotbar-slot .slot-number {
+            position: absolute;
+            top: 1px;
+            left: 3px;
+            font-size: 9px;
+            color: white;
+            text-shadow: 1px 1px 0 black;
         }
-
-        @keyframes shimmer {
-            0%, 100% { filter: brightness(1); }
-            50% { filter: brightness(1.3); }
-        }
-
-        button {
-            width: 100%;
-            padding: 15px 20px;
-            margin-bottom: 12px;
-            background: linear-gradient(90deg, #ffd700, #ffb800, #ffd700); /* Золотые кнопки */
-            border: none;
-            border-radius: 50px;
-            color: #000000; /* Чёрный текст */
-            font-size: 15px;
+        
+        .hotbar-slot .item-count {
+            position: absolute;
+            bottom: 1px;
+            right: 3px;
+            font-size: 10px;
+            color: white;
+            text-shadow: 1px 1px 0 black;
             font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
         }
-
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
+        
+        #stats {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .stat-row { display: flex; gap: 1px; }
+        
+        .heart, .hunger-icon {
+            width: 16px;
+            height: 16px;
+            background-size: contain;
+        }
+        
+        .heart { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M0 1h2v1h1v1h1v1h1V3h1V2h1V1h2v1h1v3h-1v1h-1v1h-1v1h-1v1H4V9H3V8H2V7H1V6H0V4h1V2H0z"/><path fill="%23ff3636" d="M1 2h2v1h1v1h1V3h1V2h2v2h-1v1h-1v1h-1v1H4V6H3V5H2V4H1z"/><path fill="%23ff6b6b" d="M1 2h1v1h1V2h1v1H3v1H2V3H1z"/></svg>'); }
+        .heart.empty { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M0 1h2v1h1v1h1v1h1V3h1V2h1V1h2v1h1v3h-1v1h-1v1h-1v1h-1v1H4V9H3V8H2V7H1V6H0V4h1V2H0z"/><path fill="%23555" d="M1 2h2v1h1v1h1V3h1V2h2v2h-1v1h-1v1h-1v1H4V6H3V5H2V4H1z"/></svg>'); }
+        .heart.half { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M0 1h2v1h1v1h1v1h1V3h1V2h1V1h2v1h1v3h-1v1h-1v1h-1v1h-1v1H4V9H3V8H2V7H1V6H0V4h1V2H0z"/><path fill="%23555" d="M1 2h2v1h1v1h1V3h1V2h2v2h-1v1h-1v1h-1v1H4V6H3V5H2V4H1z"/><path fill="%23ff3636" d="M1 2h2v1h1v1H4v1H3v1H2V5H1V4H0V3h1z"/></svg>'); }
+        
+        .hunger-icon { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M1 0h2v1h3V0h2v1h1v2h-1v1h1v2h-1v2H7v1H2V8H1V6H0V5h1V4H0V2h1z"/><path fill="%23c4823a" d="M1 1h2v1h3V1h2v1h-1v1h1v2h-1v1H2V5H1V4h1V3H1z"/><path fill="%23e8a960" d="M2 2h1v1H2zM5 2h1v1H5zM3 4h2v1H3z"/></svg>'); }
+        .hunger-icon.empty { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M1 0h2v1h3V0h2v1h1v2h-1v1h1v2h-1v2H7v1H2V8H1V6H0V5h1V4H0V2h1z"/><path fill="%23555" d="M1 1h2v1h3V1h2v1h-1v1h1v2h-1v1H2V5H1V4h1V3H1z"/></svg>'); }
+        .hunger-icon.half { background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 9"><path fill="%23000" d="M1 0h2v1h3V0h2v1h1v2h-1v1h1v2h-1v2H7v1H2V8H1V6H0V5h1V4H0V2h1z"/><path fill="%23555" d="M1 1h2v1h3V1h2v1h-1v1h1v2h-1v1H2V5H1V4h1V3H1z"/><path fill="%23c4823a" d="M5 1h2v1h-1v1h1v2h-1v1H5z"/></svg>'); }
+        
+        .damage-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 0, 0, 0.3);
+            pointer-events: none;
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .damage-overlay.active { opacity: 1; }
+        
+        #debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 11px;
+            text-shadow: 1px 1px 0 black;
+            z-index: 200;
+            font-family: monospace;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        
+        .breaking-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 6px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid white;
+            z-index: 150;
+            display: none;
+        }
+        .breaking-progress { height: 100%; background: white; width: 0%; }
+        
+        /* Command Input */
+        #command-container {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 400;
+            display: none;
+            width: 90%;
+            max-width: 600px;
+        }
+        
+        #command-input {
             width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-            transition: left 0.5s ease;
+            background: rgba(0,0,0,0.8);
+            border: 2px solid #555;
+            color: white;
+            padding: 10px 15px;
+            font-size: 16px;
+            font-family: monospace;
+            outline: none;
+            border-radius: 4px;
         }
-
-        button:hover::before {
-            left: 100%;
-        }
-
-        button:hover {
-            transform: translateY(-3px);
-            box-shadow: 
-                0 8px 25px rgba(255, 215, 0, 0.5),
-                0 0 20px rgba(255, 215, 0, 0.3);
-            background: linear-gradient(90deg, #ffec8b, #ffd700, #ffec8b);
-        }
-
-        button:active {
-            transform: scale(0.97);
-        }
-
-        button a {
-            text-decoration: none;
-            color: #000000;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Декоративные элементы */
-        .menu-box::before,
-        .menu-box::after {
-            content: '⚡';
-            position: absolute;
-            font-size: 24px;
-            opacity: 0.6;
-        }
-
-        .menu-box::before {
-            top: 15px;
-            left: 20px;
-        }
-
-        .menu-box::after {
-            top: 15px;
-            right: 20px;
-        }
-
-        /* Скроллбар для длинного списка */
-        .buttons-container {
-            max-height: 400px;
+        
+        #command-suggestions {
+            background: rgba(0,0,0,0.9);
+            border: 1px solid #555;
+            border-top: none;
+            max-height: 150px;
             overflow-y: auto;
-            padding-right: 5px;
+            display: none;
         }
-
-        .buttons-container::-webkit-scrollbar {
-            width: 6px;
+        
+        .suggestion {
+            padding: 8px 15px;
+            color: #aaa;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 14px;
         }
-
-        .buttons-container::-webkit-scrollbar-track {
-            background: rgba(255, 215, 0, 0.1);
-            border-radius: 10px;
+        .suggestion:hover { background: #333; color: white; }
+        .suggestion .cmd { color: #55ff55; }
+        .suggestion .desc { color: #888; margin-left: 10px; }
+        
+        /* Chat/Log */
+        #chat-log {
+            position: fixed;
+            bottom: 140px;
+            left: 10px;
+            width: 400px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 350;
+            pointer-events: none;
         }
-
-        .buttons-container::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #ffd700, #ffb800);
-            border-radius: 10px;
+        
+        .chat-message {
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 4px 8px;
+            margin: 2px 0;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 2px;
+            animation: fadeIn 0.2s;
+        }
+        .chat-message.error { color: #ff5555; }
+        .chat-message.success { color: #55ff55; }
+        .chat-message.info { color: #55ffff; }
+        .chat-message.warning { color: #ffff55; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Title Display */
+        #title-display {
+            position: fixed;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 350;
+            pointer-events: none;
+            display: none;
+        }
+        
+        #title-main {
+            font-size: 60px;
+            color: white;
+            text-shadow: 3px 3px 0 #000, -1px -1px 0 #000;
+            animation: titleIn 0.5s ease-out;
+        }
+        
+        #title-sub {
+            font-size: 24px;
+            color: #ffff55;
+            text-shadow: 2px 2px 0 #000;
+            margin-top: 10px;
+        }
+        
+        @keyframes titleIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        /* Effects Display */
+        #effects-display {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .effect-item {
+            background: rgba(0,0,0,0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .effect-icon { font-size: 18px; }
+        .effect-time { color: #aaa; }
+        
+        /* XP Bar */
+        #xp-bar-container {
+            position: fixed;
+            bottom: 62px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 182px;
+            height: 5px;
+            background: #222;
+            border: 1px solid #000;
+            z-index: 199;
+        }
+        
+        #xp-bar { height: 100%; background: #7fff00; width: 0%; }
+        
+        #xp-level {
+            position: fixed;
+            bottom: 68px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #7fff00;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+            z-index: 200;
         }
     </style>
 </head>
 <body>
-    <div class="menu-box">
-        <!-- Логотип -->
-        <img src="image/logo.jpg" alt="Нейро Рич 2" class="logo">
-        
-        <h2>⭐ Меню ⭐</h2>
-        <div class="buttons-container">
-        <h2>RobloxWeb</h2>
-        <button><a href="index.html">Вернуться Назад</a></button>
-        <button><a href="downoald/RobloxWeb.rar">Скачать Файл</a></button>
-        <button><a href="RobloxWeb.html">Протестировать тут</a></button>
+    <!-- Main Menu -->
+    <div id="menu" class="fixed inset-0 flex flex-col items-center justify-center z-[1000]">
+        <div class="bg-black/60 p-10 rounded-lg text-center backdrop-blur-sm">
+            <h1 class="text-5xl font-bold text-yellow-400 mb-2" style="text-shadow: 4px 4px 0 #3f3f3f, 6px 6px 0 #000;">MiniCraft 3D</h1>
+            <p class="text-white mb-8 text-lg" style="text-shadow: 2px 2px 0 #3f3f3f;">Командная версия</p>
+            
+            <div class="flex flex-col gap-4 items-center">
+                <button class="minecraft-btn" onclick="startGame('survival')">🗡️ Выживание</button>
+                <button class="minecraft-btn" onclick="startGame('creative')">✨ Творческий</button>
+                <button class="minecraft-btn" onclick="showSettings()">⚙️ Настройки</button>
+            </div>
+            
+            <p class="text-gray-300 mt-6 text-sm" id="platform-hint">Загрузка...</p>
+            <p class="text-yellow-300 mt-2 text-xs">Нажмите T или / для команд</p>
+        </div>
     </div>
+    
+    <!-- Settings -->
+    <div id="settings" class="fixed inset-0 flex items-center justify-center z-[1001] hidden">
+        <div class="bg-black/90 p-8 rounded-lg text-center min-w-[350px]">
+            <h2 class="text-3xl font-bold text-white mb-6">⚙️ Настройки</h2>
+            
+            <div class="text-white text-left mb-4">
+                <label class="block mb-2">🎯 Чувствительность: <span id="sens-value">5</span></label>
+                <input type="range" id="sensitivity" min="1" max="10" value="5" class="w-full">
+            </div>
+            
+            <div class="text-white text-left mb-4">
+                <label class="block mb-2">👁️ Дальность прорисовки: <span id="render-value">3</span></label>
+                <input type="range" id="render-distance" min="2" max="6" value="3" class="w-full">
+            </div>
+            
+            <div class="text-white text-left mb-6">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="fast-graphics" checked>
+                    🚀 Быстрая графика (меньше лагов)
+                </label>
+            </div>
+            
+            <button class="minecraft-btn" onclick="hideSettings()">✓ Готово</button>
+        </div>
+    </div>
+    
+    <!-- Game UI -->
+    <div id="game-ui" class="hidden">
+        <div id="crosshair"></div>
+        <div class="damage-overlay" id="damage-overlay"></div>
+        <div class="breaking-overlay" id="breaking-overlay">
+            <div class="breaking-progress" id="breaking-progress"></div>
+        </div>
+        
+        <div id="debug-info" class="hidden">
+            <div>FPS: <span id="fps">0</span></div>
+            <div>Позиция: <span id="pos-debug">0, 0, 0</span></div>
+            <div>Блоков: <span id="blocks-count">0</span></div>
+            <div>Tick: <span id="tick-speed">20</span>/s</div>
+        </div>
+        
+        <!-- Effects Display -->
+        <div id="effects-display"></div>
+        
+        <!-- Chat Log -->
+        <div id="chat-log"></div>
+        
+        <!-- Command Input -->
+        <div id="command-container">
+            <input type="text" id="command-input" placeholder="Введите команду..." autocomplete="off">
+            <div id="command-suggestions"></div>
+        </div>
+        
+        <!-- Title Display -->
+        <div id="title-display">
+            <div id="title-main"></div>
+            <div id="title-sub"></div>
+        </div>
+        
+        <!-- XP Bar -->
+        <div id="xp-bar-container"><div id="xp-bar"></div></div>
+        <div id="xp-level">0</div>
+        
+        <!-- Stats -->
+        <div id="stats">
+            <div class="stat-row" id="health-bar"></div>
+            <div class="stat-row" id="hunger-bar"></div>
+        </div>
+        
+        <!-- Hotbar -->
+        <div class="hotbar" id="hotbar"></div>
+        
+        <!-- Mobile Controls -->
+        <div id="mobile-controls" class="hidden">
+            <div id="joystick-container"><div id="joystick"></div></div>
+            <div id="look-area"></div>
+            <button id="jump-btn" class="touch-control" style="bottom: 30px; right: 30px; width: 70px; height: 70px;">⬆️</button>
+            <button id="crouch-btn" class="touch-control" style="bottom: 30px; right: 110px; width: 50px; height: 50px; font-size: 18px;">⬇️</button>
+            <button id="break-btn" class="touch-control" style="bottom: 115px; right: 95px; width: 60px; height: 60px;">⛏️</button>
+            <button id="place-btn" class="touch-control" style="bottom: 115px; right: 25px; width: 60px; height: 60px;">📦</button>
+            <button id="pause-btn" class="touch-control" style="top: 10px; right: 10px; width: 45px; height: 45px; font-size: 18px;">⏸️</button>
+            <button id="chat-btn" class="touch-control" style="top: 10px; left: 10px; width: 45px; height: 45px; font-size: 18px;">💬</button>
+        </div>
+    </div>
+    
+    <div id="game-container"></div>
+    
+    <!-- Pause Menu -->
+    <div id="pause-menu" class="fixed inset-0 flex items-center justify-center z-[500] hidden bg-black/50">
+        <div class="bg-black/80 p-8 rounded-lg text-center">
+            <h2 class="text-4xl font-bold text-white mb-8">⏸️ Пауза</h2>
+            <div class="flex flex-col gap-4">
+                <button class="minecraft-btn" onclick="resumeGame()">▶️ Продолжить</button>
+                <button class="minecraft-btn" onclick="showSettings()">⚙️ Настройки</button>
+                <button class="minecraft-btn" onclick="location.reload()">🏠 Меню</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Death Screen -->
+    <div id="death-screen" class="fixed inset-0 flex items-center justify-center z-[600] hidden bg-red-900/80">
+        <div class="text-center">
+            <h2 class="text-5xl font-bold text-red-500 mb-4" style="text-shadow: 4px 4px 0 #000;">Вы погибли!</h2>
+            <p class="text-white text-xl mb-8">Очки: <span id="death-score">0</span></p>
+            <div class="flex flex-col gap-4 items-center">
+                <button class="minecraft-btn" onclick="respawn()">🔄 Возродиться</button>
+                <button class="minecraft-btn" onclick="location.reload()">🏠 Меню</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== GAME STATE ==========
+        let scene, camera, renderer;
+        let gameMode = 'survival';
+        let health = 20, maxHealth = 20;
+        let hunger = 20, maxHunger = 20;
+        let xp = 0, xpLevel = 0, xpToNext = 7;
+        let selectedSlot = 0;
+        let isPaused = false;
+        let isPlaying = false;
+        let score = 0;
+        let tickSpeed = 20;
+        let gameTime = 0;
+        
+        // Optimized block storage
+        let blocks = new Map();
+        let blockMeshes = new Map();
+        let chunksToUpdate = new Set();
+        
+        // Player
+        let playerPos = { x: 0, y: 25, z: 0 };
+        let playerVel = { x: 0, y: 0, z: 0 };
+        let playerRot = { x: 0, y: 0 };
+        let isGrounded = false;
+        let isCrouching = false;
+        let lastFallY = 25;
+        
+        // Effects system
+        let activeEffects = {};
+        
+        // Inventory
+        let inventory = {};
+        
+        // Controls
+        let keys = {};
+        let joystickData = { active: false, x: 0, y: 0 };
+        let lookData = { active: false, startX: 0, startY: 0 };
+        let isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        let isPointerLocked = false;
+        let isCommandOpen = false;
+        
+        // Breaking
+        let isBreaking = false;
+        let breakingBlock = null;
+        let breakingProgress = 0;
+        
+        // Block definitions
+        const BLOCKS = {
+            air: { id: 0, name: 'Воздух', color: 0x000000, hardness: 0 },
+            grass: { id: 1, name: 'Трава', color: 0x567d46, topColor: 0x7cba3d, hardness: 0.6 },
+            dirt: { id: 2, name: 'Земля', color: 0x8b5a2b, hardness: 0.5 },
+            stone: { id: 3, name: 'Камень', color: 0x888888, hardness: 1.5 },
+            wood: { id: 4, name: 'Дерево', color: 0x6b4423, hardness: 2 },
+            leaves: { id: 5, name: 'Листва', color: 0x2d7a2d, hardness: 0.2 },
+            sand: { id: 6, name: 'Песок', color: 0xe8d174, hardness: 0.5 },
+            water: { id: 7, name: 'Вода', color: 0x3498db, hardness: 100 },
+            cobblestone: { id: 8, name: 'Булыжник', color: 0x6a6a6a, hardness: 2 },
+            planks: { id: 9, name: 'Доски', color: 0xc4a051, hardness: 2 },
+            brick: { id: 10, name: 'Кирпич', color: 0xaa5544, hardness: 2 },
+            glass: { id: 11, name: 'Стекло', color: 0xaaddff, hardness: 0.3 },
+            iron_ore: { id: 12, name: 'Железная руда', color: 0xd4af90, hardness: 3 },
+            gold_ore: { id: 13, name: 'Золотая руда', color: 0xffd700, hardness: 3 },
+            diamond_ore: { id: 14, name: 'Алмазная руда', color: 0x44ffff, hardness: 3 },
+            bedrock: { id: 15, name: 'Бедрок', color: 0x333333, hardness: -1 },
+            iron_block: { id: 16, name: 'Железный блок', color: 0xdddddd, hardness: 5 },
+            gold_block: { id: 17, name: 'Золотой блок', color: 0xffcc00, hardness: 3 },
+            diamond_block: { id: 18, name: 'Алмазный блок', color: 0x44ffff, hardness: 5 },
+            tnt: { id: 19, name: 'Динамит', color: 0xff0000, hardness: 0 },
+            obsidian: { id: 20, name: 'Обсидиан', color: 0x1a0a2e, hardness: 50 }
+        };
+        
+        const BLOCK_NAMES = Object.keys(BLOCKS);
+        
+        let hotbarItems = [
+            { type: 'grass', count: 64 },
+            { type: 'dirt', count: 64 },
+            { type: 'stone', count: 64 },
+            { type: 'wood', count: 64 },
+            { type: 'planks', count: 64 },
+            { type: 'cobblestone', count: 64 },
+            { type: 'brick', count: 64 },
+            { type: 'glass', count: 64 },
+            { type: 'tnt', count: 64 }
+        ];
+        
+        // Effects definitions
+        const EFFECTS = {
+            speed: { name: 'Скорость', icon: '💨', color: '#7cafc4' },
+            slowness: { name: 'Медлительность', icon: '🐌', color: '#5a6c81' },
+            haste: { name: 'Спешка', icon: '⛏️', color: '#d9c043' },
+            strength: { name: 'Сила', icon: '💪', color: '#932423' },
+            instant_health: { name: 'Исцеление', icon: '❤️', color: '#f82423' },
+            instant_damage: { name: 'Урон', icon: '💔', color: '#430a09' },
+            jump_boost: { name: 'Прыгучесть', icon: '🦘', color: '#22ff4f' },
+            regeneration: { name: 'Регенерация', icon: '💗', color: '#cd5cab' },
+            resistance: { name: 'Сопротивление', icon: '🛡️', color: '#99453a' },
+            fire_resistance: { name: 'Огнестойкость', icon: '🔥', color: '#e49a3a' },
+            water_breathing: { name: 'Подводное дыхание', icon: '🫧', color: '#2e5299' },
+            invisibility: { name: 'Невидимость', icon: '👻', color: '#7f8392' },
+            night_vision: { name: 'Ночное зрение', icon: '👁️', color: '#1f1fa1' },
+            saturation: { name: 'Насыщение', icon: '🍖', color: '#f82423' },
+            levitation: { name: 'Левитация', icon: '🎈', color: '#ceffff' },
+            slow_falling: { name: 'Плавное падение', icon: '🪶', color: '#f7f8e0' }
+        };
+        
+        // Commands
+        const COMMANDS = {
+            help: { desc: 'Список команд', usage: '/help' },
+            fill: { desc: 'Заполнить область блоками', usage: '/fill <x1> <y1> <z1> <x2> <y2> <z2> <block>' },
+            setblock: { desc: 'Установить блок', usage: '/setblock <x> <y> <z> <block>' },
+            give: { desc: 'Выдать предметы', usage: '/give <block> [count]' },
+            clear: { desc: 'Очистить инвентарь', usage: '/clear' },
+            tp: { desc: 'Телепортация', usage: '/tp <x> <y> <z>' },
+            effect: { desc: 'Наложить эффект', usage: '/effect <effect> [seconds] [level]' },
+            effect_clear: { desc: 'Убрать эффекты', usage: '/effect clear' },
+            gamemode: { desc: 'Сменить режим', usage: '/gamemode <survival|creative>' },
+            time: { desc: 'Установить время', usage: '/time set <day|night|noon|midnight|ticks>' },
+            weather: { desc: 'Изменить погоду', usage: '/weather <clear|rain>' },
+            tick: { desc: 'Скорость игры', usage: '/tick <1-100>' },
+            kill: { desc: 'Убить игрока', usage: '/kill' },
+            heal: { desc: 'Исцелить игрока', usage: '/heal' },
+            feed: { desc: 'Накормить игрока', usage: '/feed' },
+            xp: { desc: 'Добавить опыт', usage: '/xp <amount> [levels]' },
+            title: { desc: 'Показать заголовок', usage: '/title <text> [subtitle]' },
+            summon: { desc: 'Создать взрыв', usage: '/summon explosion [power]' },
+            seed: { desc: 'Показать сид мира', usage: '/seed' },
+            clone: { desc: 'Клонировать область', usage: '/clone <x1> <y1> <z1> <x2> <y2> <z2> <x> <y> <z>' }
+        };
+        
+        document.getElementById('platform-hint').textContent = isMobile 
+            ? '📱 Мобильное управление' : '🖱️ ПК управление';
+        
+        // ========== INITIALIZATION ==========
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 30, 80);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(1); // Force pixel ratio 1 for performance
+            document.getElementById('game-container').appendChild(renderer.domElement);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(50, 100, 50);
+            scene.add(dirLight);
+            
+            generateWorld();
+            setupHotbar();
+            updateStats();
+            setupControls();
+            setupCommandSystem();
+            
+            addChatMessage('Добро пожаловать! Нажмите T или / для команд', 'info');
+            addChatMessage('Введите /help для списка команд', 'info');
+            
+            animate();
+        }
+        
+        // ========== OPTIMIZED WORLD GENERATION ==========
+        function generateWorld() {
+            const size = 40;
+            const heightMap = [];
+            
+            // Generate heightmap
+            for (let x = 0; x < size; x++) {
+                heightMap[x] = [];
+                for (let z = 0; z < size; z++) {
+                    const height = Math.floor(
+                        8 + Math.sin(x * 0.1) * 3 + Math.cos(z * 0.1) * 3 +
+                        Math.sin((x + z) * 0.05) * 2
+                    );
+                    heightMap[x][z] = Math.max(1, height);
+                }
+            }
+            
+            // Create blocks efficiently
+            for (let x = 0; x < size; x++) {
+                for (let z = 0; z < size; z++) {
+                    const height = heightMap[x][z];
+                    const worldX = x - size/2;
+                    const worldZ = z - size/2;
+                    
+                    setBlockFast(worldX, 0, worldZ, 'bedrock');
+                    
+                    for (let y = 1; y <= height; y++) {
+                        let blockType;
+                        if (y === height) {
+                            blockType = height < 6 ? 'sand' : 'grass';
+                        } else if (y > height - 3) {
+                            blockType = 'dirt';
+                        } else {
+                            const rand = Math.random();
+                            if (y < 8 && rand < 0.02) blockType = 'diamond_ore';
+                            else if (y < 12 && rand < 0.04) blockType = 'gold_ore';
+                            else if (rand < 0.08) blockType = 'iron_ore';
+                            else blockType = 'stone';
+                        }
+                        setBlockFast(worldX, y, worldZ, blockType);
+                    }
+                    
+                    // Trees
+                    if (heightMap[x][z] >= 6 && Math.random() < 0.02) {
+                        const treeH = 4 + Math.floor(Math.random() * 2);
+                        const baseY = height + 1;
+                        for (let ty = 0; ty < treeH; ty++) {
+                            setBlockFast(worldX, baseY + ty, worldZ, 'wood');
+                        }
+                        for (let lx = -2; lx <= 2; lx++) {
+                            for (let lz = -2; lz <= 2; lz++) {
+                                for (let ly = -1; ly <= 1; ly++) {
+                                    if (Math.abs(lx) + Math.abs(lz) + Math.abs(ly) < 4 && Math.random() > 0.2) {
+                                        const key = getKey(worldX + lx, baseY + treeH + ly, worldZ + lz);
+                                        if (!blocks.has(key)) {
+                                            setBlockFast(worldX + lx, baseY + treeH + ly, worldZ + lz, 'leaves');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Build all meshes
+            rebuildAllMeshes();
+            
+            const spawnH = heightMap[Math.floor(size/2)][Math.floor(size/2)] || 10;
+            playerPos.y = spawnH + 3;
+            lastFallY = playerPos.y;
+        }
+        
+        function getKey(x, y, z) {
+            return `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`;
+        }
+        
+        function setBlockFast(x, y, z, type) {
+            const key = getKey(x, y, z);
+            if (type === 'air') {
+                blocks.delete(key);
+            } else {
+                blocks.set(key, { type, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
+            }
+        }
+        
+        function setBlock(x, y, z, type) {
+            const key = getKey(x, y, z);
+            
+            // Remove old mesh
+            if (blockMeshes.has(key)) {
+                scene.remove(blockMeshes.get(key));
+                blockMeshes.delete(key);
+            }
+            
+            if (type === 'air' || !type) {
+                blocks.delete(key);
+                return;
+            }
+            
+            blocks.set(key, { type, x: Math.floor(x), y: Math.floor(y), z: Math.floor(z) });
+            
+            // Create mesh
+            const mesh = createBlockMesh(type, Math.floor(x), Math.floor(y), Math.floor(z));
+            if (mesh) {
+                scene.add(mesh);
+                blockMeshes.set(key, mesh);
+            }
+        }
+        
+        function getBlock(x, y, z) {
+            return blocks.get(getKey(x, y, z));
+        }
+        
+        // Shared geometries and materials for optimization
+        const sharedGeo = new THREE.BoxGeometry(1, 1, 1);
+        const materialCache = {};
+        
+        function getMaterial(type) {
+            if (materialCache[type]) return materialCache[type];
+            
+            const block = BLOCKS[type];
+            let mat;
+            
+            if (type === 'grass') {
+                mat = [
+                    new THREE.MeshLambertMaterial({ color: block.color }),
+                    new THREE.MeshLambertMaterial({ color: block.color }),
+                    new THREE.MeshLambertMaterial({ color: block.topColor }),
+                    new THREE.MeshLambertMaterial({ color: BLOCKS.dirt.color }),
+                    new THREE.MeshLambertMaterial({ color: block.color }),
+                    new THREE.MeshLambertMaterial({ color: block.color })
+                ];
+            } else if (type === 'glass') {
+                mat = new THREE.MeshLambertMaterial({ color: block.color, transparent: true, opacity: 0.4 });
+            } else if (type === 'leaves') {
+                mat = new THREE.MeshLambertMaterial({ color: block.color, transparent: true, opacity: 0.85 });
+            } else if (type === 'water') {
+                mat = new THREE.MeshLambertMaterial({ color: block.color, transparent: true, opacity: 0.6 });
+            } else {
+                mat = new THREE.MeshLambertMaterial({ color: block.color });
+            }
+            
+            materialCache[type] = mat;
+            return mat;
+        }
+        
+        function createBlockMesh(type, x, y, z) {
+            const mesh = new THREE.Mesh(sharedGeo, getMaterial(type));
+            mesh.position.set(x + 0.5, y + 0.5, z + 0.5);
+            mesh.userData = { type, x, y, z };
+            return mesh;
+        }
+        
+        function rebuildAllMeshes() {
+            // Clear old meshes
+            blockMeshes.forEach(mesh => scene.remove(mesh));
+            blockMeshes.clear();
+            
+            // Create new meshes
+            blocks.forEach((block, key) => {
+                const mesh = createBlockMesh(block.type, block.x, block.y, block.z);
+                if (mesh) {
+                    scene.add(mesh);
+                    blockMeshes.set(key, mesh);
+                }
+            });
+        }
+        
+        // ========== UI ==========
+        function setupHotbar() {
+            const hotbar = document.getElementById('hotbar');
+            hotbar.innerHTML = '';
+            
+            hotbarItems.forEach((item, i) => {
+                const slot = document.createElement('div');
+                slot.className = `hotbar-slot ${i === selectedSlot ? 'selected' : ''}`;
+                
+                const preview = document.createElement('div');
+                preview.className = 'block-preview';
+                preview.style.background = `#${BLOCKS[item.type].color.toString(16).padStart(6, '0')}`;
+                
+                const number = document.createElement('span');
+                number.className = 'slot-number';
+                number.textContent = i + 1;
+                
+                const count = document.createElement('span');
+                count.className = 'item-count';
+                count.textContent = item.count;
+                
+                slot.appendChild(preview);
+                slot.appendChild(number);
+                slot.appendChild(count);
+                slot.onclick = () => selectSlot(i);
+                hotbar.appendChild(slot);
+            });
+        }
+        
+        function selectSlot(index) {
+            if (index < 0) index = hotbarItems.length - 1;
+            if (index >= hotbarItems.length) index = 0;
+            selectedSlot = index;
+            document.querySelectorAll('.hotbar-slot').forEach((slot, i) => {
+                slot.classList.toggle('selected', i === index);
+            });
+        }
+        
+        function updateStats() {
+            if (gameMode !== 'survival') {
+                document.getElementById('stats').classList.add('hidden');
+                return;
+            }
+            document.getElementById('stats').classList.remove('hidden');
+            
+            const healthBar = document.getElementById('health-bar');
+            const hungerBar = document.getElementById('hunger-bar');
+            
+            healthBar.innerHTML = '';
+            for (let i = 0; i < maxHealth / 2; i++) {
+                const heart = document.createElement('span');
+                const hp = health - i * 2;
+                heart.className = hp >= 2 ? 'heart' : hp === 1 ? 'heart half' : 'heart empty';
+                healthBar.appendChild(heart);
+            }
+            
+            hungerBar.innerHTML = '';
+            for (let i = 0; i < maxHunger / 2; i++) {
+                const food = document.createElement('span');
+                const h = hunger - i * 2;
+                food.className = h >= 2 ? 'hunger-icon' : h === 1 ? 'hunger-icon half' : 'hunger-icon empty';
+                hungerBar.appendChild(food);
+            }
+            
+            document.getElementById('xp-bar').style.width = `${(xp / xpToNext) * 100}%`;
+            document.getElementById('xp-level').textContent = xpLevel;
+        }
+        
+        function updateEffectsDisplay() {
+            const container = document.getElementById('effects-display');
+            container.innerHTML = '';
+            
+            for (const [effectId, data] of Object.entries(activeEffects)) {
+                const effect = EFFECTS[effectId];
+                if (!effect) continue;
+                
+                const item = document.createElement('div');
+                item.className = 'effect-item';
+                item.innerHTML = `
+                    <span class="effect-icon">${effect.icon}</span>
+                    <span>${effect.name} ${data.level > 1 ? 'x' + data.level : ''}</span>
+                    <span class="effect-time">${Math.ceil(data.time)}s</span>
+                `;
+                container.appendChild(item);
+            }
+        }
+        
+        // ========== COMMAND SYSTEM ==========
+        function setupCommandSystem() {
+            const input = document.getElementById('command-input');
+            const suggestions = document.getElementById('command-suggestions');
+            
+            input.addEventListener('input', () => {
+                const value = input.value;
+                if (value.startsWith('/')) {
+                    showSuggestions(value.slice(1));
+                } else {
+                    suggestions.style.display = 'none';
+                }
+            });
+            
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    executeCommand(input.value);
+                    input.value = '';
+                    closeCommand();
+                } else if (e.key === 'Escape') {
+                    closeCommand();
+                } else if (e.key === 'Tab') {
+                    e.preventDefault();
+                    autocomplete();
+                }
+            });
+        }
+        
+        function showSuggestions(query) {
+            const container = document.getElementById('command-suggestions');
+            container.innerHTML = '';
+            
+            const matches = Object.entries(COMMANDS)
+                .filter(([cmd]) => cmd.startsWith(query.split(' ')[0]))
+                .slice(0, 5);
+            
+            if (matches.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            matches.forEach(([cmd, info]) => {
+                const div = document.createElement('div');
+                div.className = 'suggestion';
+                div.innerHTML = `<span class="cmd">/${cmd}</span><span class="desc">${info.desc}</span>`;
+                div.onclick = () => {
+                    document.getElementById('command-input').value = '/' + cmd + ' ';
+                    document.getElementById('command-input').focus();
+                };
+                container.appendChild(div);
+            });
+            
+            container.style.display = 'block';
+        }
+        
+        function autocomplete() {
+            const input = document.getElementById('command-input');
+            const value = input.value.slice(1).split(' ')[0];
+            const match = Object.keys(COMMANDS).find(c => c.startsWith(value));
+            if (match) input.value = '/' + match + ' ';
+        }
+        
+        function openCommand() {
+            isCommandOpen = true;
+            document.getElementById('command-container').style.display = 'block';
+            document.getElementById('command-input').value = '/';
+            document.getElementById('command-input').focus();
+            document.exitPointerLock();
+        }
+        
+        function closeCommand() {
+            isCommandOpen = false;
+            document.getElementById('command-container').style.display = 'none';
+            document.getElementById('command-suggestions').style.display = 'none';
+            if (!isMobile && !isPaused) {
+                renderer.domElement.requestPointerLock();
+            }
+        }
+        
+        function addChatMessage(text, type = '') {
+            const log = document.getElementById('chat-log');
+            const msg = document.createElement('div');
+            msg.className = `chat-message ${type}`;
+            msg.textContent = text;
+            log.appendChild(msg);
+            log.scrollTop = log.scrollHeight;
+            
+            setTimeout(() => msg.remove(), 10000);
+        }
+        
+        function executeCommand(cmd) {
+            if (!cmd.startsWith('/')) {
+                addChatMessage(cmd);
+                return;
+            }
+            
+            const parts = cmd.slice(1).split(' ');
+            const command = parts[0].toLowerCase();
+            const args = parts.slice(1);
+            
+            try {
+                switch (command) {
+                    case 'help':
+                        addChatMessage('=== Команды ===', 'info');
+                        Object.entries(COMMANDS).forEach(([c, info]) => {
+                            addChatMessage(`${info.usage} - ${info.desc}`, 'info');
+                        });
+                        break;
+                        
+                    case 'fill':
+                        cmdFill(args);
+                        break;
+                        
+                    case 'setblock':
+                        cmdSetblock(args);
+                        break;
+                        
+                    case 'give':
+                        cmdGive(args);
+                        break;
+                        
+                    case 'clear':
+                        hotbarItems.forEach(item => item.count = 0);
+                        setupHotbar();
+                        addChatMessage('Инвентарь очищен', 'success');
+                        break;
+                        
+                    case 'tp':
+                        cmdTeleport(args);
+                        break;
+                        
+                    case 'effect':
+                        cmdEffect(args);
+                        break;
+                        
+                    case 'gamemode':
+                    case 'gm':
+                        cmdGamemode(args);
+                        break;
+                        
+                    case 'time':
+                        cmdTime(args);
+                        break;
+                        
+                    case 'tick':
+                        const newTick = parseInt(args[0]) || 20;
+                        tickSpeed = Math.max(1, Math.min(100, newTick));
+                        addChatMessage(`Скорость игры: ${tickSpeed} ticks/s`, 'success');
+                        break;
+                        
+                    case 'kill':
+                        if (gameMode === 'survival') {
+                            health = 0;
+                            die();
+                        }
+                        addChatMessage('Игрок убит', 'warning');
+                        break;
+                        
+                    case 'heal':
+                        health = maxHealth;
+                        updateStats();
+                        addChatMessage('Игрок исцелён', 'success');
+                        break;
+                        
+                    case 'feed':
+                        hunger = maxHunger;
+                        updateStats();
+                        addChatMessage('Игрок накормлен', 'success');
+                        break;
+                        
+                    case 'xp':
+                        cmdXP(args);
+                        break;
+                        
+                    case 'title':
+                        cmdTitle(args);
+                        break;
+                        
+                    case 'summon':
+                        if (args[0] === 'explosion') {
+                            const power = parseInt(args[1]) || 4;
+                            createExplosion(playerPos.x, playerPos.y, playerPos.z, power);
+                            addChatMessage(`Создан взрыв мощностью ${power}`, 'warning');
+                        }
+                        break;
+                        
+                    case 'seed':
+                        addChatMessage('Сид мира: ' + Math.floor(Math.random() * 999999999), 'info');
+                        break;
+                        
+                    case 'clone':
+                        cmdClone(args);
+                        break;
+                        
+                    case 'weather':
+                        if (args[0] === 'rain') {
+                            scene.fog = new THREE.Fog(0x666688, 10, 50);
+                            scene.background = new THREE.Color(0x666688);
+                            addChatMessage('Погода: дождь', 'info');
+                        } else {
+                            scene.fog = new THREE.Fog(0x87CEEB, 30, 80);
+                            scene.background = new THREE.Color(0x87CEEB);
+                            addChatMessage('Погода: ясно', 'info');
+                        }
+                        break;
+                        
+                    default:
+                        addChatMessage(`Неизвестная команда: ${command}`, 'error');
+                }
+            } catch (e) {
+                addChatMessage(`Ошибка: ${e.message}`, 'error');
+            }
+        }
+        
+        function cmdFill(args) {
+            if (args.length < 7) {
+                addChatMessage('Использование: /fill <x1> <y1> <z1> <x2> <y2> <z2> <block>', 'error');
+                return;
+            }
+            
+            let [x1, y1, z1, x2, y2, z2] = args.slice(0, 6).map(v => {
+                if (v.startsWith('~')) return Math.floor(playerPos[['x','y','z'][args.indexOf(v) % 3]]) + (parseInt(v.slice(1)) || 0);
+                return parseInt(v);
+            });
+            
+            const blockType = args[6].toLowerCase();
+            if (!BLOCKS[blockType]) {
+                addChatMessage(`Неизвестный блок: ${blockType}`, 'error');
+                return;
+            }
+            
+            const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+            
+            const volume = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+            if (volume > 10000) {
+                addChatMessage('Слишком большая область (макс 10000 блоков)', 'error');
+                return;
+            }
+            
+            let count = 0;
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    for (let z = minZ; z <= maxZ; z++) {
+                        setBlock(x, y, z, blockType);
+                        count++;
+                    }
+                }
+            }
+            
+            addChatMessage(`Заполнено ${count} блоков`, 'success');
+        }
+        
+        function cmdSetblock(args) {
+            if (args.length < 4) {
+                addChatMessage('Использование: /setblock <x> <y> <z> <block>', 'error');
+                return;
+            }
+            
+            const coords = ['x', 'y', 'z'];
+            const [x, y, z] = args.slice(0, 3).map((v, i) => {
+                if (v.startsWith('~')) return Math.floor(playerPos[coords[i]]) + (parseInt(v.slice(1)) || 0);
+                return parseInt(v);
+            });
+            
+            const blockType = args[3].toLowerCase();
+            if (!BLOCKS[blockType]) {
+                addChatMessage(`Неизвестный блок: ${blockType}`, 'error');
+                return;
+            }
+            
+            setBlock(x, y, z, blockType);
+            addChatMessage(`Установлен ${BLOCKS[blockType].name} на ${x}, ${y}, ${z}`, 'success');
+        }
+        
+        function cmdGive(args) {
+            if (args.length < 1) {
+                addChatMessage('Использование: /give <block> [count]', 'error');
+                return;
+            }
+            
+            const blockType = args[0].toLowerCase();
+            if (!BLOCKS[blockType] || blockType === 'air') {
+                addChatMessage(`Неизвестный блок: ${blockType}`, 'error');
+                return;
+            }
+            
+            const count = Math.min(64, parseInt(args[1]) || 64);
+            
+            // Find slot with same item or empty slot
+            let slot = hotbarItems.findIndex(i => i.type === blockType && i.count < 64);
+            if (slot === -1) slot = hotbarItems.findIndex(i => i.count === 0);
+            if (slot === -1) slot = selectedSlot;
+            
+            hotbarItems[slot] = { type: blockType, count };
+            setupHotbar();
+            
+            addChatMessage(`Выдано ${count}x ${BLOCKS[blockType].name}`, 'success');
+        }
+        
+        function cmdTeleport(args) {
+            if (args.length < 3) {
+                addChatMessage('Использование: /tp <x> <y> <z>', 'error');
+                return;
+            }
+            
+            const coords = ['x', 'y', 'z'];
+            const [x, y, z] = args.map((v, i) => {
+                if (v.startsWith('~')) return playerPos[coords[i]] + (parseFloat(v.slice(1)) || 0);
+                return parseFloat(v);
+            });
+            
+            playerPos.x = x;
+            playerPos.y = y;
+            playerPos.z = z;
+            playerVel = { x: 0, y: 0, z: 0 };
+            lastFallY = y;
+            
+            addChatMessage(`Телепортирован на ${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}`, 'success');
+        }
+        
+        function cmdEffect(args) {
+            if (args.length < 1) {
+                addChatMessage('Использование: /effect <effect> [seconds] [level]', 'error');
+                addChatMessage('Эффекты: ' + Object.keys(EFFECTS).join(', '), 'info');
+                return;
+            }
+            
+            if (args[0] === 'clear') {
+                activeEffects = {};
+                updateEffectsDisplay();
+                addChatMessage('Все эффекты сняты', 'success');
+                return;
+            }
+            
+            const effectId = args[0].toLowerCase();
+            if (!EFFECTS[effectId]) {
+                addChatMessage(`Неизвестный эффект: ${effectId}`, 'error');
+                return;
+            }
+            
+            const duration = parseInt(args[1]) || 30;
+            const level = Math.min(255, parseInt(args[2]) || 1);
+            
+            // Apply instant effects
+            if (effectId === 'instant_health') {
+                health = Math.min(maxHealth, health + 4 * level);
+                updateStats();
+                addChatMessage(`Мгновенное здоровье применено`, 'success');
+                return;
+            }
+            if (effectId === 'instant_damage') {
+                takeDamage(6 * level);
+                addChatMessage(`Мгновенный урон применён`, 'warning');
+                return;
+            }
+            
+            activeEffects[effectId] = { time: duration, level };
+            updateEffectsDisplay();
+            
+            addChatMessage(`Эффект ${EFFECTS[effectId].name} x${level} на ${duration}с`, 'success');
+        }
+        
+        function cmdGamemode(args) {
+            if (args.length < 1) {
+                addChatMessage('Использование: /gamemode <survival|creative|s|c|0|1>', 'error');
+                return;
+            }
+            
+            const mode = args[0].toLowerCase();
+            if (mode === 'survival' || mode === 's' || mode === '0') {
+                gameMode = 'survival';
+                addChatMessage('Режим игры: Выживание', 'success');
+            } else if (mode === 'creative' || mode === 'c' || mode === '1') {
+                gameMode = 'creative';
+                addChatMessage('Режим игры: Творческий', 'success');
+            } else {
+                addChatMessage('Неизвестный режим', 'error');
+            }
+            updateStats();
+        }
+        
+        function cmdTime(args) {
+            if (args[0] !== 'set' || args.length < 2) {
+                addChatMessage('Использование: /time set <day|night|noon|midnight|ticks>', 'error');
+                return;
+            }
+            
+            const time = args[1].toLowerCase();
+            let skyColor, fogColor;
+            
+            switch (time) {
+                case 'day':
+                case 'noon':
+                    skyColor = 0x87CEEB;
+                    break;
+                case 'night':
+                case 'midnight':
+                    skyColor = 0x0a0a20;
+                    break;
+                default:
+                    const ticks = parseInt(time);
+                    if (isNaN(ticks)) {
+                        addChatMessage('Неверное время', 'error');
+                        return;
+                    }
+                    const normalized = (ticks % 24000) / 24000;
+                    if (normalized < 0.25 || normalized > 0.75) {
+                        skyColor = 0x0a0a20;
+                    } else {
+                        skyColor = 0x87CEEB;
+                    }
+            }
+            
+            scene.background = new THREE.Color(skyColor);
+            scene.fog = new THREE.Fog(skyColor, 30, 80);
+            addChatMessage(`Время установлено: ${time}`, 'success');
+        }
+        
+        function cmdXP(args) {
+            const amount = parseInt(args[0]) || 0;
+            const isLevels = args[1] === 'levels' || args[1] === 'l';
+            
+            if (isLevels) {
+                xpLevel += amount;
+            } else {
+                xp += amount;
+                while (xp >= xpToNext) {
+                    xp -= xpToNext;
+                    xpLevel++;
+                    xpToNext = 7 + xpLevel * 3;
+                }
+            }
+            
+            updateStats();
+            addChatMessage(`Добавлено ${amount} ${isLevels ? 'уровней' : 'XP'}`, 'success');
+        }
+        
+        function cmdTitle(args) {
+            if (args.length < 1) {
+                addChatMessage('Использование: /title <текст> [подзаголовок]', 'error');
+                return;
+            }
+            
+            const mainText = args[0].replace(/_/g, ' ');
+            const subText = args.slice(1).join(' ').replace(/_/g, ' ');
+            
+            showTitle(mainText, subText);
+        }
+        
+        function showTitle(main, sub = '') {
+            const display = document.getElementById('title-display');
+            document.getElementById('title-main').textContent = main;
+            document.getElementById('title-sub').textContent = sub;
+            display.style.display = 'block';
+            
+            setTimeout(() => display.style.display = 'none', 3000);
+        }
+        
+        function cmdClone(args) {
+            if (args.length < 9) {
+                addChatMessage('Использование: /clone <x1> <y1> <z1> <x2> <y2> <z2> <x> <y> <z>', 'error');
+                return;
+            }
+            
+            const coords = args.slice(0, 9).map((v, i) => {
+                const axis = ['x', 'y', 'z'][i % 3];
+                if (v.startsWith('~')) return Math.floor(playerPos[axis]) + (parseInt(v.slice(1)) || 0);
+                return parseInt(v);
+            });
+            
+            const [x1, y1, z1, x2, y2, z2, dx, dy, dz] = coords;
+            
+            const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+            
+            let count = 0;
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    for (let z = minZ; z <= maxZ; z++) {
+                        const block = getBlock(x, y, z);
+                        if (block) {
+                            const newX = dx + (x - minX);
+                            const newY = dy + (y - minY);
+                            const newZ = dz + (z - minZ);
+                            setBlock(newX, newY, newZ, block.type);
+                            count++;
+                        }
+                    }
+                }
+            }
+            
+            addChatMessage(`Клонировано ${count} блоков`, 'success');
+        }
+        
+        function createExplosion(x, y, z, power) {
+            for (let dx = -power; dx <= power; dx++) {
+                for (let dy = -power; dy <= power; dy++) {
+                    for (let dz = -power; dz <= power; dz++) {
+                        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                        if (dist <= power && Math.random() > dist / power * 0.5) {
+                            const block = getBlock(x + dx, y + dy, z + dz);
+                            if (block && block.type !== 'bedrock') {
+                                setBlock(x + dx, y + dy, z + dz, 'air');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Push player
+            const distToPlayer = Math.sqrt(
+                Math.pow(playerPos.x - x, 2) +
+                Math.pow(playerPos.y - y, 2) +
+                Math.pow(playerPos.z - z, 2)
+            );
+            
+            if (distToPlayer < power * 2) {
+                const force = (1 - distToPlayer / (power * 2)) * 0.5;
+                playerVel.x += (playerPos.x - x) * force;
+                playerVel.y += force * 0.5;
+                playerVel.z += (playerPos.z - z) * force;
+                
+                if (gameMode === 'survival') {
+                    takeDamage(Math.floor((1 - distToPlayer / (power * 2)) * power * 2));
+                }
+            }
+        }
+        
+        // ========== CONTROLS ==========
+        function setupControls() {
+            document.addEventListener('keydown', e => {
+                if (isCommandOpen) return;
+                
+                keys[e.code] = true;
+                
+                if (e.code === 'Escape') {
+                    e.preventDefault();
+                    togglePause();
+                }
+                if (e.code === 'F3') {
+                    e.preventDefault();
+                    const debug = document.getElementById('debug-info');
+                    debug.classList.toggle('hidden');
+                }
+                if ((e.code === 'KeyT' || e.code === 'Slash') && isPlaying && !isPaused) {
+                    e.preventDefault();
+                    openCommand();
+                }
+                if (e.code >= 'Digit1' && e.code <= 'Digit9') {
+                    selectSlot(parseInt(e.code.charAt(5)) - 1);
+                }
+            });
+            
+            document.addEventListener('keyup', e => {
+                keys[e.code] = false;
+            });
+            
+            renderer.domElement.addEventListener('click', () => {
+                if (isPlaying && !isPaused && !isMobile && !isCommandOpen) {
+                    renderer.domElement.requestPointerLock();
+                }
+            });
+            
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = document.pointerLockElement === renderer.domElement;
+            });
+            
+            document.addEventListener('mousemove', e => {
+                if (isPointerLocked && !isPaused && !isCommandOpen) {
+                    const sens = parseFloat(document.getElementById('sensitivity').value) * 0.0004;
+                    playerRot.y -= e.movementX * sens;
+                    playerRot.x -= e.movementY * sens;
+                    playerRot.x = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, playerRot.x));
+                }
+            });
+            
+            document.addEventListener('mousedown', e => {
+                if (!isPointerLocked || isPaused || isCommandOpen) return;
+                if (e.button === 0) {
+                    isBreaking = true;
+                    breakingProgress = 0;
+                }
+                if (e.button === 2) placeBlock();
+            });
+            
+            document.addEventListener('mouseup', e => {
+                if (e.button === 0) {
+                    isBreaking = false;
+                    breakingProgress = 0;
+                    breakingBlock = null;
+                    document.getElementById('breaking-overlay').style.display = 'none';
+                }
+            });
+            
+            document.addEventListener('wheel', e => {
+                if (!isPlaying || isPaused || isCommandOpen) return;
+                e.preventDefault();
+                selectSlot(selectedSlot + (e.deltaY > 0 ? 1 : -1));
+            }, { passive: false });
+            
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            
+            if (isMobile) {
+                document.getElementById('mobile-controls').classList.remove('hidden');
+                setupMobileControls();
+            }
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        
+        function setupMobileControls() {
+            const joystickContainer = document.getElementById('joystick-container');
+            const joystick = document.getElementById('joystick');
+            const lookArea = document.getElementById('look-area');
+            
+            joystickContainer.addEventListener('touchstart', e => {
+                e.preventDefault();
+                joystickData.active = true;
+            });
+            
+            joystickContainer.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (!joystickData.active) return;
+                
+                const touch = e.touches[0];
+                const rect = joystickContainer.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const max = rect.width / 2 - 25;
+                
+                if (dist > max) {
+                    dx = dx / dist * max;
+                    dy = dy / dist * max;
+                }
+                
+                joystick.style.left = `${50 + dx / rect.width * 100}%`;
+                joystick.style.top = `${50 + dy / rect.height * 100}%`;
+                joystickData.x = dx / max;
+                joystickData.y = dy / max;
+            });
+            
+            joystickContainer.addEventListener('touchend', () => {
+                joystickData.active = false;
+                joystickData.x = 0;
+                joystickData.y = 0;
+                joystick.style.left = '50%';
+                joystick.style.top = '50%';
+            });
+            
+            lookArea.addEventListener('touchstart', e => {
+                e.preventDefault();
+                lookData.active = true;
+                lookData.startX = e.touches[0].clientX;
+                lookData.startY = e.touches[0].clientY;
+            });
+            
+            lookArea.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (!lookData.active) return;
+                
+                const touch = e.touches[0];
+                const dx = touch.clientX - lookData.startX;
+                const dy = touch.clientY - lookData.startY;
+                
+                const sens = parseFloat(document.getElementById('sensitivity').value) * 0.003;
+                playerRot.y -= dx * sens;
+                playerRot.x -= dy * sens;
+                playerRot.x = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, playerRot.x));
+                
+                lookData.startX = touch.clientX;
+                lookData.startY = touch.clientY;
+            });
+            
+            lookArea.addEventListener('touchend', () => lookData.active = false);
+            
+            document.getElementById('jump-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (isGrounded) playerVel.y = 0.18;
+            });
+            
+            document.getElementById('crouch-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                isCrouching = true;
+            });
+            document.getElementById('crouch-btn').addEventListener('touchend', e => {
+                e.preventDefault();
+                isCrouching = false;
+            });
+            
+            document.getElementById('break-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                isBreaking = true;
+            });
+            document.getElementById('break-btn').addEventListener('touchend', e => {
+                e.preventDefault();
+                isBreaking = false;
+                breakingProgress = 0;
+                breakingBlock = null;
+                document.getElementById('breaking-overlay').style.display = 'none';
+            });
+            
+            document.getElementById('place-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                placeBlock();
+            });
+            
+            document.getElementById('pause-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                togglePause();
+            });
+            
+            document.getElementById('chat-btn').addEventListener('touchstart', e => {
+                e.preventDefault();
+                openCommand();
+            });
+        }
+        
+        // ========== GAME LOGIC ==========
+        function raycast() {
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            const raycaster = new THREE.Raycaster(camera.position, dir, 0, 5);
+            const meshes = Array.from(blockMeshes.values());
+            const hits = raycaster.intersectObjects(meshes);
+            return hits.length > 0 ? hits[0] : null;
+        }
+        
+        function updateBreaking(delta) {
+            if (!isBreaking || isPaused) return;
+            
+            const hit = raycast();
+            if (!hit) {
+                breakingProgress = 0;
+                breakingBlock = null;
+                document.getElementById('breaking-overlay').style.display = 'none';
+                return;
+            }
+            
+            const { x, y, z, type } = hit.object.userData;
+            const blockKey = `${x},${y},${z}`;
+            
+            if (breakingBlock !== blockKey) {
+                breakingBlock = blockKey;
+                breakingProgress = 0;
+            }
+            
+            const block = BLOCKS[type];
+            if (block.hardness < 0) return;
+            
+            let breakTime = block.hardness;
+            if (activeEffects.haste) breakTime /= (1 + activeEffects.haste.level * 0.2);
+            
+            breakingProgress += delta;
+            
+            const overlay = document.getElementById('breaking-overlay');
+            const progress = document.getElementById('breaking-progress');
+            overlay.style.display = 'block';
+            progress.style.width = `${Math.min(100, (breakingProgress / breakTime) * 100)}%`;
+            
+            if (breakingProgress >= breakTime) {
+                // Check for TNT
+                if (type === 'tnt') {
+                    setTimeout(() => createExplosion(x, y, z, 4), 100);
+                }
+                
+                setBlock(x, y, z, 'air');
+                breakingProgress = 0;
+                breakingBlock = null;
+                overlay.style.display = 'none';
+                score += 10;
+                
+                // Add XP
+                if (gameMode === 'survival') {
+                    xp += 1;
+                    if (xp >= xpToNext) {
+                        xp -= xpToNext;
+                        xpLevel++;
+                        xpToNext = 7 + xpLevel * 3;
+                    }
+                    updateStats();
+                }
+            }
+        }
+        
+        function placeBlock() {
+            const hit = raycast();
+            if (!hit) return;
+            
+            const item = hotbarItems[selectedSlot];
+            if (item.count <= 0 && gameMode === 'survival') return;
+            
+            const normal = hit.face.normal;
+            const { x, y, z } = hit.object.userData;
+            const newX = x + Math.round(normal.x);
+            const newY = y + Math.round(normal.y);
+            const newZ = z + Math.round(normal.z);
+            
+            const px = Math.floor(playerPos.x);
+            const py = Math.floor(playerPos.y);
+            const pz = Math.floor(playerPos.z);
+            
+            const blocked = (newX === px && newZ === pz && (newY === py || newY === py - 1));
+            
+            if (!blocked && !getBlock(newX, newY, newZ)) {
+                // Check for TNT placement near fire (instant explode)
+                if (item.type === 'tnt') {
+                    setBlock(newX, newY, newZ, item.type);
+                } else {
+                    setBlock(newX, newY, newZ, item.type);
+                }
+                
+                if (gameMode === 'survival') {
+                    item.count--;
+                    setupHotbar();
+                }
+                score += 5;
+            }
+        }
+        
+        function checkCollision(x, y, z) {
+            const height = isCrouching ? 1.5 : 1.8;
+            const width = 0.3;
+            
+            for (let oy = 0; oy >= -height; oy -= 0.5) {
+                for (const ox of [-width, width]) {
+                    for (const oz of [-width, width]) {
+                        const block = getBlock(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz));
+                        if (block && block.type !== 'water') return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        function updatePlayer(delta) {
+            if (isPaused || isCommandOpen) return;
+            
+            // Calculate speed modifiers from effects
+            let speedMod = 1;
+            if (activeEffects.speed) speedMod *= 1 + activeEffects.speed.level * 0.2;
+            if (activeEffects.slowness) speedMod *= 1 - activeEffects.slowness.level * 0.15;
+            
+            let moveX = 0, moveZ = 0;
+            
+            if (isMobile) {
+                moveX = joystickData.x;
+                moveZ = joystickData.y;
+            } else {
+                if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+                
+                if (keys['Space'] && isGrounded) {
+                    let jumpPower = 0.18;
+                    if (activeEffects.jump_boost) jumpPower += activeEffects.jump_boost.level * 0.05;
+                    playerVel.y = jumpPower;
+                    isGrounded = false;
+                }
+                isCrouching = keys['ShiftLeft'] || keys['ShiftRight'];
+            }
+            
+            if (moveX !== 0 && moveZ !== 0) {
+                const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+                moveX /= len;
+                moveZ /= len;
+            }
+            
+            const baseSpeed = isCrouching ? 0.04 : (keys['ControlLeft'] ? 0.12 : 0.07);
+            const speed = baseSpeed * speedMod;
+            
+            const sin = Math.sin(playerRot.y);
+            const cos = Math.cos(playerRot.y);
+            
+            const targetVelX = (moveX * cos - moveZ * sin) * speed;
+            const targetVelZ = (moveX * sin + moveZ * cos) * speed;
+            
+            playerVel.x = playerVel.x * 0.8 + targetVelX * 0.2;
+            playerVel.z = playerVel.z * 0.8 + targetVelZ * 0.2;
+            
+            // Gravity & levitation
+            if (activeEffects.levitation) {
+                playerVel.y = 0.05 * activeEffects.levitation.level;
+            } else if (activeEffects.slow_falling && playerVel.y < 0) {
+                playerVel.y = Math.max(playerVel.y, -0.04);
+            } else {
+                playerVel.y -= 0.012;
+                playerVel.y = Math.max(playerVel.y, -1);
+            }
+            
+            // Movement with collision
+            const newX = playerPos.x + playerVel.x;
+            if (!checkCollision(newX, playerPos.y, playerPos.z)) {
+                playerPos.x = newX;
+            } else {
+                playerVel.x = 0;
+            }
+            
+            const newZ = playerPos.z + playerVel.z;
+            if (!checkCollision(playerPos.x, playerPos.y, newZ)) {
+                playerPos.z = newZ;
+            } else {
+                playerVel.z = 0;
+            }
+            
+            const newY = playerPos.y + playerVel.y;
+            if (!checkCollision(playerPos.x, newY, playerPos.z)) {
+                playerPos.y = newY;
+                isGrounded = false;
+            } else {
+                if (playerVel.y < 0) {
+                    isGrounded = true;
+                    
+                    if (gameMode === 'survival' && !activeEffects.slow_falling) {
+                        const fallDist = lastFallY - playerPos.y;
+                        if (fallDist > 3) {
+                            const dmg = Math.floor((fallDist - 3) * 2);
+                            if (!activeEffects.resistance) takeDamage(dmg);
+                            else takeDamage(Math.floor(dmg / (1 + activeEffects.resistance.level)));
+                        }
+                    }
+                    lastFallY = playerPos.y;
+                }
+                playerVel.y = 0;
+            }
+            
+            if (playerVel.y > 0) lastFallY = playerPos.y;
+            
+            // Void damage
+            if (playerPos.y < -20) {
+                if (gameMode === 'survival') {
+                    takeDamage(100);
+                } else {
+                    playerPos.y = 30;
+                    playerVel.y = 0;
+                }
+            }
+            
+            // Update camera
+            camera.position.set(playerPos.x, playerPos.y - (isCrouching ? 0.3 : 0), playerPos.z);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = playerRot.y;
+            camera.rotation.x = playerRot.x;
+            
+            updateBreaking(delta);
+        }
+        
+        function takeDamage(amount) {
+            if (gameMode !== 'survival') return;
+            
+            // Resistance effect
+            if (activeEffects.resistance) {
+                amount = Math.floor(amount * (1 - activeEffects.resistance.level * 0.2));
+            }
+            
+            health -= amount;
+            health = Math.max(0, health);
+            updateStats();
+            
+            const overlay = document.getElementById('damage-overlay');
+            overlay.classList.add('active');
+            setTimeout(() => overlay.classList.remove('active'), 200);
+            
+            if (health <= 0) die();
+        }
+        
+        let hungerTimer = 0;
+        let regenTimer = 0;
+        let effectTimer = 0;
+        
+        function updateSurvival(delta) {
+            if (gameMode !== 'survival' || isPaused) return;
+            
+            const tickDelta = delta * (tickSpeed / 20);
+            
+            // Update effects
+            effectTimer += delta;
+            if (effectTimer >= 1) {
+                effectTimer = 0;
+                
+                for (const [id, effect] of Object.entries(activeEffects)) {
+                    effect.time -= 1;
+                    
+                    // Regeneration effect
+                    if (id === 'regeneration' && health < maxHealth) {
+                        health = Math.min(maxHealth, health + effect.level);
+                        updateStats();
+                    }
+                    
+                    // Saturation effect  
+                    if (id === 'saturation' && hunger < maxHunger) {
+                        hunger = Math.min(maxHunger, hunger + effect.level);
+                        updateStats();
+                    }
+                    
+                    if (effect.time <= 0) {
+                        delete activeEffects[id];
+                    }
+                }
+                updateEffectsDisplay();
+            }
+            
+            // Hunger
+            hungerTimer += tickDelta;
+            if (hungerTimer > 8) {
+                hungerTimer = 0;
+                if (hunger > 0 && !activeEffects.saturation) {
+                    hunger--;
+                    updateStats();
+                }
+            }
+            
+            // Starving
+            if (hunger <= 0) {
+                regenTimer += tickDelta;
+                if (regenTimer > 2) {
+                    regenTimer = 0;
+                    takeDamage(1);
+                }
+            }
+            
+            // Natural regeneration
+            if (hunger >= 18 && health < maxHealth && !activeEffects.regeneration) {
+                regenTimer += tickDelta;
+                if (regenTimer > 1) {
+                    regenTimer = 0;
+                    health = Math.min(health + 1, maxHealth);
+                    hunger = Math.max(0, hunger - 1);
+                    updateStats();
+                }
+            }
+        }
+        
+        function die() {
+            document.getElementById('death-score').textContent = score;
+            document.getElementById('death-screen').classList.remove('hidden');
+            isPaused = true;
+        }
+        
+        function respawn() {
+            document.getElementById('death-screen').classList.add('hidden');
+            health = maxHealth;
+            hunger = maxHunger;
+            playerPos = { x: 0, y: 25, z: 0 };
+            playerVel = { x: 0, y: 0, z: 0 };
+            lastFallY = 25;
+            isPaused = false;
+            activeEffects = {};
+            updateEffectsDisplay();
+            updateStats();
+        }
+        
+        function togglePause() {
+            if (!isPlaying) return;
+            isPaused = !isPaused;
+            document.getElementById('pause-menu').classList.toggle('hidden', !isPaused);
+            
+            if (!isPaused && !isMobile) renderer.domElement.requestPointerLock();
+            if (isPaused) document.exitPointerLock();
+        }
+        
+        function resumeGame() {
+            isPaused = false;
+            document.getElementById('pause-menu').classList.add('hidden');
+            document.getElementById('settings').classList.add('hidden');
+            if (!isMobile) renderer.domElement.requestPointerLock();
+        }
+        
+        // ========== GAME LOOP ==========
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+        let fps = 0;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const now = performance.now();
+            const delta = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+            
+            // FPS counter
+            frameCount++;
+            if (now - lastFpsTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+                
+                const debug = document.getElementById('debug-info');
+                if (!debug.classList.contains('hidden')) {
+                    document.getElementById('fps').textContent = fps;
+                    document.getElementById('pos-debug').textContent = 
+                        `${playerPos.x.toFixed(1)}, ${playerPos.y.toFixed(1)}, ${playerPos.z.toFixed(1)}`;
+                    document.getElementById('blocks-count').textContent = blocks.size;
+                    document.getElementById('tick-speed').textContent = tickSpeed;
+                }
+            }
+            
+            if (isPlaying) {
+                gameTime += delta;
+                updatePlayer(delta);
+                updateSurvival(delta);
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        function startGame(mode) {
+            gameMode = mode;
+            isPlaying = true;
+            
+            document.getElementById('menu').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            
+            init();
+            
+            if (!isMobile) {
+                setTimeout(() => renderer.domElement.requestPointerLock(), 100);
+            }
+        }
+        
+        function showSettings() {
+            document.getElementById('settings').classList.remove('hidden');
+        }
+        
+        function hideSettings() {
+            document.getElementById('settings').classList.add('hidden');
+        }
+        
+        // Settings listeners
+        document.getElementById('sensitivity').addEventListener('input', function() {
+            document.getElementById('sens-value').textContent = this.value;
+        });
+        document.getElementById('render-distance').addEventListener('input', function() {
+            document.getElementById('render-value').textContent = this.value;
+            if (scene && scene.fog) {
+                const dist = parseInt(this.value) * 16;
+                scene.fog.near = dist * 0.5;
+                scene.fog.far = dist;
+            }
+        });
+    </script>
 </body>
 </html>
