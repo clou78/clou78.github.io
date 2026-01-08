@@ -224,6 +224,43 @@
             height: 100%;
         }
 
+        /* Категории */
+        .category-section {
+            margin-bottom: 25px;
+        }
+
+        .category-title {
+            color: #ffd700;
+            font-size: 18px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            text-align: left;
+            position: relative;
+        }
+
+        .category-title::after {
+            content: '▼';
+            position: absolute;
+            right: 0;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: transform 0.3s;
+        }
+
+        .category-title.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .category-content {
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+        }
+
+        .category-content.collapsed {
+            max-height: 0 !important;
+        }
+
         /* ⭐ Подсветка при поиске */
         button.highlight {
             background: linear-gradient(90deg, #ffff00, #ffea00, #ffff00) !important;
@@ -275,7 +312,7 @@
         }
 
         .buttons-container {
-            max-height: 350px;
+            max-height: 400px;
             overflow-y: auto;
             padding-right: 5px;
         }
@@ -305,6 +342,28 @@
         .no-results.visible {
             display: block;
         }
+
+        /* Стиль для текстовых категорий */
+        .text-category {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: left;
+            color: #ffec8b;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .text-category ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .text-category li {
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -328,44 +387,73 @@
         <div class="search-results" id="searchResults"></div>
         
         <div class="buttons-container" id="buttonsContainer">
-            <button><a href="AI.html">🤖 Наш ИИ</a></button>
-            <button><a href="Chat2.html">💬 Наш чат</a></button>
-            <button><a href="create.html">🎮 Создать игру 3D</a></button>
-            <button><a href="index36.html">🚙 World Of Tanks</a></button>
-            <button><a href="index35.html">🔫 FPS</a></button>
-            <button><a href="index34.html">🔪 The strongent Battlegrounds [NEW VERSION]</a></button>
-            <button><a href="index33.html">📱 IOS 27</a></button>
-            <button><a href="index32.html">🎲 Cubes</a></button>
-            <button><a href="index31.html">🌲 Terraria</a></button>
-            <button><a href="index30.html">🔪 Shadow Assasin</a></button>
-            <button><a href="index29.html">🎨 Paint strike</a></button>
-            <button><a href="index28.html">🚗 Car Drive</a></button>
-            <button><a href="index27.html">👿 BrawlStars</a></button>
-            <button><a href="index26.html">🛑 Clicker</a></button>
-            <button><a href="index25.html">💟 Cloth</a></button>
-            <button><a href="index24.html">🌲 Minecraft 2D</a></button>
-            <button><a href="index23.html">🌲 Fear of the forest</a></button>
-            <button><a href="index22.html">☎ Gartic Phone</a></button>
-            <button><a href="index21.html">🎙 FL Studio</a></button>
-            <button><a href="index20.html">🌁 The City</a></button>
-            <button><a href="index19.html">👑 Shaxmati</a></button>
-            <button><a href="index18.html">🧨 The bullet</a></button>
-            <button><a href="index17.html">🔻 ZoneX</a></button>
-            <button><a href="index16.html">🎭 Animator</a></button>
-            <button><a href="index15.html">🔻 Blender</a></button>
-            <button><a href="index14.html">🔗 The Town</a></button>
-            <button><a href="index13.html">🎨 Draw Me!</a></button>
-            <button><a href="index12.html">🧨 Echo</a></button>
-            <button><a href="index11.html">🥁 SOLAXX BEATS</a></button>
-            <button><a href="index10.html">🌐 Game Site Slava</a></button>
-            <button><a href="index9.html">🏗️ 3D Scene Builder</a></button>
-            <button><a href="index8.html">🌍 Creator World</a></button>
-            <button><a href="index7.html">🎯 Roblox</a></button>
-            <button><a href="index6.html">⛏️ Minecraft Edition</a></button>
-            <button><a href="index5.html">🏃 Minecraft Parkour</a></button>
-            <button><a href="index4.html">🎬 MC Animator Pro</a></button>
-            <button><a href="index3.html">🦖 Google Dinosaur</a></button>
-            <button><a href="index2.html">💻 Windows 12</a></button>
+            <!-- Категория: Проекты -->
+            <div class="category-section">
+                <div class="category-title" onclick="toggleCategory('projects')">🚀 Проекты</div>
+                <div class="category-content" id="projects-category">
+                    <button><a href="AI.html">🤖 Наш ИИ</a></button>
+                    <button><a href="Chat2.html">💬 Наш чат</a></button>
+                    <button><a href="create.html">🎮 Создать игру 3D</a></button>
+                    <button><a href="index36.html">🚙 World Of Tanks</a></button>
+                    <button><a href="index35.html">🔫 FPS</a></button>
+                    <button><a href="index34.html">🔪 The strongent Battlegrounds [NEW VERSION]</a></button>
+                    <button><a href="index33.html">📱 IOS 27</a></button>
+                    <button><a href="index32.html">🎲 Cubes</a></button>
+                    <button><a href="index31.html">🌲 Terraria</a></button>
+                    <button><a href="index30.html">🔪 Shadow Assasin</a></button>
+                    <button><a href="index29.html">🎨 Paint strike</a></button>
+                    <button><a href="index28.html">🚗 Car Drive</a></button>
+                    <button><a href="index27.html">👿 BrawlStars</a></button>
+                    <button><a href="index26.html">🛑 Clicker</a></button>
+                    <button><a href="index25.html">💟 Cloth</a></button>
+                    <button><a href="index24.html">🌲 Minecraft 2D</a></button>
+                    <button><a href="index23.html">🌲 Fear of the forest</a></button>
+                    <button><a href="index22.html">☎ Gartic Phone</a></button>
+                    <button><a href="index21.html">🎙 FL Studio</a></button>
+                    <button><a href="index20.html">🌁 The City</a></button>
+                    <button><a href="index19.html">👑 Shaxmati</a></button>
+                    <button><a href="index18.html">🧨 The bullet</a></button>
+                    <button><a href="index17.html">🔻 ZoneX</a></button>
+                    <button><a href="index16.html">🎭 Animator</a></button>
+                    <button><a href="index15.html">🔻 Blender</a></button>
+                    <button><a href="index14.html">🔗 The Town</a></button>
+                    <button><a href="index13.html">🎨 Draw Me!</a></button>
+                    <button><a href="index12.html">🧨 Echo</a></button>
+                    <button><a href="index11.html">🥁 SOLAXX BEATS</a></button>
+                    <button><a href="index10.html">🌐 Game Site Slava</a></button>
+                    <button><a href="index9.html">🏗️ 3D Scene Builder</a></button>
+                    <button><a href="index8.html">🌍 Creator World</a></button>
+                    <button><a href="index7.html">🎯 Roblox</a></button>
+                    <button><a href="index6.html">⛏️ Minecraft Edition</a></button>
+                    <button><a href="index5.html">🏃 Minecraft Parkour</a></button>
+                    <button><a href="index4.html">🎬 MC Animator Pro</a></button>
+                    <button><a href="index3.html">🦖 Google Dinosaur</a></button>
+                    <button><a href="index2.html">💻 Windows 12</a></button>
+                </div>
+            </div>
+            
+            <!-- Категория: Улучшения -->
+            <div class="category-section">
+                <div class="category-title" onclick="toggleCategory('improvements')">✨ Улучшения</div>
+                <div class="category-content" id="improvements-category">
+                    <!-- Пока пусто -->
+                </div>
+            </div>
+            
+            <!-- Категория: Правила -->
+            <div class="category-section">
+                <div class="category-title" onclick="toggleCategory('rules')">📜 Правила</div>
+                <div class="category-content" id="rules-category">
+                    <div class="text-category">
+                        Правила для выложения проекта:
+                        <ul>
+                            <li>Не должно быть матов ✅</li>
+                            <li>Не должно быть чего то кринжово и ПЛОХОГО ✅</li>
+                            <li>Не должно быть то что уже есть на сайте ✅</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
             
             <div class="no-results" id="noResults">😔 Ничего не найдено</div>
         </div>
@@ -376,7 +464,24 @@
         const clearBtn = document.getElementById('clearBtn');
         const searchResults = document.getElementById('searchResults');
         const noResults = document.getElementById('noResults');
-        const buttons = document.querySelectorAll('.buttons-container button');
+        
+        // Собираем все кнопки проектов
+        const projectButtons = document.querySelectorAll('#projects-category button');
+        const allButtons = document.querySelectorAll('.buttons-container button');
+
+        // Функция для переключения категорий
+        function toggleCategory(categoryId) {
+            const categoryTitle = document.querySelector(`#${categoryId}-category`).parentElement.querySelector('.category-title');
+            const categoryContent = document.getElementById(`${categoryId}-category`);
+            
+            categoryTitle.classList.toggle('collapsed');
+            categoryContent.classList.toggle('collapsed');
+            
+            // Устанавливаем максимальную высоту для анимации
+            if (!categoryContent.classList.contains('collapsed')) {
+                categoryContent.style.maxHeight = categoryContent.scrollHeight + 'px';
+            }
+        }
 
         // Поиск при вводе
         searchInput.addEventListener('input', function() {
@@ -388,7 +493,8 @@
             let matchCount = 0;
             let firstMatch = null;
 
-            buttons.forEach(button => {
+            // Ищем только в категории проектов
+            projectButtons.forEach(button => {
                 const text = button.textContent.toLowerCase();
                 const isMatch = query && text.includes(query);
                 
@@ -447,10 +553,18 @@
                 searchInput.select();
             }
         });
+
+        // Инициализация категорий (все открыты по умолчанию)
+        document.addEventListener('DOMContentLoaded', function() {
+            // Устанавливаем начальную высоту для всех категорий
+            document.querySelectorAll('.category-content').forEach(category => {
+                category.style.maxHeight = category.scrollHeight + 'px';
+            });
+        });
     </script>
 </body>
-
 </html>
+
 
 
 
