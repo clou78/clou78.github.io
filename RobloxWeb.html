@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Roblox Web | V2.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #191b1d;
+            color: #fff;
+            margin: 0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .roblox-card {
+            background: #232527;
+            border-radius: 4px;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .roblox-card:hover {
+            border-color: rgba(255,255,255,0.1);
+        }
+
+        .btn-primary {
+            background-color: #0084ff;
+            color: white;
+            font-weight: bold;
+            border-radius: 4px;
+            padding: 8px 16px;
+        }
+
+        .btn-green {
+            background-color: #00b06f;
+            color: white;
+            font-weight: 500;
+            border-radius: 4px;
+            padding: 10px 20px;
+        }
+
+        /* Avatar Preview Styles */
+        #avatar-preview {
+            width: 150px;
+            height: 200px;
+            position: relative;
+            margin: 0 auto;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+        }
+
+        .part {
+            position: absolute;
+            box-shadow: inset -4px -4px 10px rgba(0,0,0,0.2);
+        }
+
+        .part-head { width: 40px; height: 40px; top: 12px; left: 55px; border-radius: 6px; z-index: 2; }
+        .part-torso { width: 62px; height: 72px; top: 54px; left: 44px; border-radius: 4px; z-index: 1; }
+        .part-arm-l { width: 25px; height: 72px; top: 54px; left: 16px; border-radius: 4px; }
+        .part-arm-r { width: 25px; height: 72px; top: 54px; left: 109px; border-radius: 4px; }
+        .part-leg-l { width: 28px; height: 72px; top: 128px; left: 44px; border-radius: 4px; }
+        .part-leg-r { width: 28px; height: 72px; top: 128px; left: 78px; border-radius: 4px; }
+        
+        .hat-container {
+            position: absolute;
+            top: -15px;
+            left: 45px;
+            width: 60px;
+            height: 40px;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hat-svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+        }
+
+        canvas {
+            background: #000;
+            display: block;
+            margin: 0 auto;
+            border-radius: 12px;
+            max-width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .tab-active {
+            border-bottom: 3px solid #fff;
+            color: #fff;
+        }
+        
+        .tab-inactive {
+            color: #adb5bd;
+        }
+
+        #robux-display {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #393b3d;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Top Navigation -->
+    <header class="bg-[#232527] h-14 flex items-center justify-between px-4 border-b border-[#393b3d] shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="text-2xl font-black italic tracking-tighter">ROBLOX</div>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="robux-display" class="flex items-center gap-1 bg-[#111] px-2 py-1 rounded-full text-sm font-bold border border-gray-700">
+                <span class="text-[#0084ff]">R$</span>
+                <span id="robux-count">0</span>
+            </div>
+            <i class="fa-solid fa-bell text-gray-400"></i>
+            <i class="fa-solid fa-gear text-gray-400"></i>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="screen-container" class="flex-1 overflow-y-auto p-4 pb-24">
+        
+        <!-- Home Screen -->
+        <section id="screen-home" class="screen">
+            <h2 class="text-xl font-bold mb-4">Рекомендации</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4" id="games-list">
+                <!-- Games will be injected here -->
+            </div>
+        </section>
+
+        <!-- Avatar Screen -->
+        <section id="screen-avatar" class="screen hidden">
+            <div class="flex flex-col items-center mb-6">
+                <div id="avatar-preview-container" class="bg-[#111] p-8 rounded-lg mb-4 border border-gray-800">
+                    <div id="avatar-preview">
+                        <div class="hat-container" id="preview-hat"></div>
+                        <div class="part part-head" id="preview-head"></div>
+                        <div class="part part-torso" id="preview-torso"></div>
+                        <div class="part part-arm-l" id="preview-arm-l"></div>
+                        <div class="part part-arm-r" id="preview-arm-r"></div>
+                        <div class="part part-leg-l" id="preview-leg-l"></div>
+                        <div class="part part-leg-r" id="preview-leg-r"></div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-4 overflow-x-auto w-full pb-2">
+                    <button onclick="switchAvatarTab('colors')" class="px-4 py-2 font-bold whitespace-nowrap avatar-tab tab-active" id="tab-colors">Цвета (10 R$)</button>
+                    <button onclick="switchAvatarTab('hats')" class="px-4 py-2 font-bold whitespace-nowrap avatar-tab" id="tab-hats">Головные уборы</button>
+                </div>
+
+                <div id="avatar-editor-content" class="w-full">
+                    <!-- Color Picker or Hat List -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Promo Code Screen -->
+        <section id="screen-shop" class="screen hidden">
+            <div class="bg-[#232527] p-6 rounded-xl mb-6 shadow-lg border border-white/5">
+                <h2 class="text-2xl font-black mb-1 italic uppercase tracking-tight">Активация кодов</h2>
+                <p class="text-sm text-gray-400 mb-6 italic">Введите секретный промокод для получения бонусов.</p>
+                
+                <div class="bg-black/20 p-5 rounded-lg border border-white/5">
+                    <label class="block text-xs font-bold uppercase mb-3 text-blue-400 tracking-wider">Введите промокод</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="promo-input" class="bg-[#111] border border-white/10 rounded flex-1 px-4 py-3 outline-none uppercase font-mono text-lg" placeholder="XXXXXX">
+                        <button onclick="activatePromo()" class="bg-[#0084ff] text-white px-8 py-3 rounded font-black hover:bg-blue-600 transition-colors uppercase italic">Активировать</button>
+                    </div>
+                    <p id="promo-msg" class="text-sm mt-3 font-bold h-5"></p>
+                </div>
+            </div>
+
+            <div class="bg-[#232527] p-4 rounded-lg border border-white/5">
+                <h3 class="font-bold mb-3 uppercase text-xs opacity-50">Активные бусты кликера</h3>
+                <div id="active-boosts-list" class="space-y-2">
+                    <!-- Boosts here -->
+                    <div class="text-xs text-gray-500 italic">Нет активных бустов</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Single Game Play Screen -->
+        <section id="screen-game-play" class="screen hidden">
+            <div class="flex items-center justify-between mb-4">
+                <button onclick="showScreen('home')" class="text-gray-400"><i class="fa-solid fa-chevron-left mr-2"></i>Назад</button>
+                <h2 id="game-title" class="font-black text-xl italic uppercase">Game Name</h2>
+                <div class="w-10"></div>
+            </div>
+            
+            <div id="game-canvas-container" class="relative">
+                <canvas id="game-canvas" width="400" height="400"></canvas>
+                <div id="game-overlay" class="absolute inset-0 flex items-center justify-center bg-black/60 hidden">
+                    <div class="text-center p-6 bg-[#232527] rounded-xl border border-white/10">
+                        <h3 id="game-over-title" class="text-2xl font-black mb-4 uppercase">КОНЕЦ ИГРЫ</h3>
+                        <div id="game-results" class="mb-6"></div>
+                        <button id="btn-restart" class="btn-green w-full mb-2 uppercase">Играть Снова</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="fa-solid fa-cart-shopping text-[#0084ff]"></i> Магазин режима</h3>
+                <div id="game-shop-items" class="grid grid-cols-1 gap-2">
+                    <!-- Shop items for current game -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="bg-[#232527] h-16 border-t border-[#393b3d] flex items-center justify-around fixed bottom-0 w-full z-50">
+        <button onclick="showScreen('home')" class="flex flex-col items-center gap-1 nav-btn text-white" id="nav-home">
+            <i class="fa-solid fa-house text-xl"></i>
+            <span class="text-[10px] font-bold">Главная</span>
+        </button>
+        <button onclick="showScreen('avatar')" class="flex flex-col items-center gap-1 nav-btn text-gray-400" id="nav-avatar">
+            <i class="fa-solid fa-user-tag text-xl"></i>
+            <span class="text-[10px] font-bold">Аватар</span>
+        </button>
+        <button onclick="showScreen('shop')" class="flex flex-col items-center gap-1 nav-btn text-gray-400" id="nav-shop">
+            <div class="bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center -mt-1">
+                <span class="text-[#0084ff] text-xs font-black italic">R$</span>
+            </div>
+            <span class="text-[10px] font-bold">Магазин</span>
+        </button>
+    </nav>
+
+    <script>
+        // --- OBFUSCATED PROMO CODES (Base64) ---
+        const P_DATA = {
+            "R0cxN0dG": 5, "SFk3TTEy": 5, "TDkzWjY1": 10, "UkU3SjA2": 10, "R0c1ODAy": 10, "NDQwOUZS": 10,
+            "R081NUZS": 25, "SjEwU0U0": 25, "N0FENjJH": 50, "ODRNMFpG": 50, "MDlBQTFR": 75, "NzdHM1hE": 75,
+            "OTBHTDND": 100, "NDBDQzdN": 100, "T1A4Wlk1": 250, "SlUxWjg3": 250, "QjcyM1dJ": 500, "WExMNjJG": 500,
+            "RlU5OU1T": 1000, "QjFONzdB": 1000, "SU8zM0FT": 2500, "S0xQMlg4": 2500, "WlpJMzYw": 5000, "RlQ4MEtN": 5000,
+            "WDMxMkRF": 10000, "SkVSNzhR": 10000, "QVhCN0w2": 50000, "S084OUEy": 100000, "QzZOSjg5": 500000,
+            "RkU2Nksx": 1000000, "TkouSTV5": 10000000, "TElPMzdG": 100000000, "RlI3SjFW": 1000000000
+        };
+
+        const B_DATA = {
+            "RkFTVDIwMjY=": 0.25, "U1BFRURDT0lO": 0.25, "Q09JTFNQRUVE": 0.35, "UkVEQ09JTlM=": 0.35,
+            "R1JFRU5SQUlO": 0.5, "SFlQRVJTVE9STQ==": 0.75, "R0FMQVhZTU9ORVk=": 0.85, "VUxUUkFHRU0=": 1.0,
+            "SFlQRVJWT0lE": 1.5, "RVhUUkFTVFJPTkc=": 2.25, "TkFOT01PTkVZ": 2.5
+        };
+
+        const HAT_SVGS = {
+            hat_1: `<svg class="hat-svg" viewBox="0 0 100 60"><path d="M10 50 L90 50 L85 40 L70 40 L70 10 L30 10 L30 40 L15 40 Z" fill="#222" stroke="#000"/></svg>`,
+            hat_2: `<svg class="hat-svg" viewBox="0 0 100 60"><path d="M10 50 L90 50 L85 40 L70 40 L70 15 L30 15 L30 40 L15 40 Z" fill="#fff" stroke="#ccc"/></svg>`,
+            hat_3: `<svg class="hat-svg" viewBox="0 0 100 60"><rect x="30" y="10" width="40" height="30" fill="#16a34a"/><text x="50" y="30" fill="white" font-size="15" text-anchor="middle">$</text><path d="M10 40 L90 40 L85 50 L15 50 Z" fill="#16a34a"/></svg>`,
+            hat_4: `<svg class="hat-svg" viewBox="0 0 100 60"><path d="M50 10 Q70 10 80 40 L20 40 Q30 10 50 10" fill="#fbbf24"/><path d="M50 10 L55 5" stroke="#4d2c00" stroke-width="2"/></svg>`,
+            hat_5: `<svg class="hat-svg" viewBox="0 0 100 60"><rect x="25" y="10" width="50" height="35" rx="5" fill="#0084ff"/><text x="50" y="32" fill="white" font-weight="900" font-style="italic" font-size="12" text-anchor="middle">R$</text></svg>`,
+            hat_6: `<svg class="hat-svg" viewBox="0 0 100 100"><path d="M30 20 L70 20 L75 80 L25 80 Z" fill="#94a3b8"/><rect x="45" y="40" width="10" height="30" fill="#334155"/></svg>`,
+            hat_7: `<svg class="hat-svg" viewBox="0 0 100 100"><path d="M30 30 Q50 10 70 30 L70 80 L30 80 Z" fill="#991b1b"/><path d="M35 30 L25 10 M65 30 L75 10" stroke="#000" stroke-width="4"/></svg>`,
+            hat_8: `<svg class="hat-svg" viewBox="0 0 100 60"><circle cx="50" cy="20" r="15" fill="none" stroke="#fde047" stroke-width="4"/><path d="M20 30 Q50 20 80 30" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/></svg>`,
+            hat_9: `<svg class="hat-svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#fff" stroke-width="1" opacity="0.3"><animate attributeName="stroke-width" values="1;4;1" dur="2s" repeatCount="indefinite"/></circle><path d="M50 10 L60 40 L90 50 L60 60 L50 90 L40 60 L10 50 L40 40 Z" fill="#fff"/></svg>`,
+            hat_10: `<svg class="hat-svg" viewBox="0 0 100 60"><rect x="20" y="20" width="60" height="30" fill="#000" stroke="#0f0"/><text x="50" y="40" fill="#0f0" font-family="monospace" font-size="10" text-anchor="middle">EXE</text></svg>`,
+            hat_11: `<svg class="hat-svg" viewBox="0 0 100 60"><rect x="10" y="25" width="80" height="15" fill="#000"/><rect x="20" y="20" width="20" height="20" fill="#000" stroke="#0f0"/><rect x="60" y="20" width="20" height="20" fill="#000" stroke="#0f0"/></svg>`,
+            hat_12: `<svg class="hat-svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="#000" stroke="#5b21b6" stroke-width="4"><animate attributeName="r" values="25;35;25" dur="3s" repeatCount="indefinite"/></circle></svg>`,
+            hat_13: `<svg class="hat-svg" viewBox="0 0 100 60"><path d="M30 30 Q30 10 50 30 Q70 50 70 30 Q70 10 50 30 Q30 50 30 30" fill="none" stroke="#0084ff" stroke-width="8"/></svg>`
+        };
+
+        const HATS = [
+            { id: 'hat_1', name: 'Черная шляпа', price: 15 },
+            { id: 'hat_2', name: 'Белая шляпа', price: 20 },
+            { id: 'hat_3', name: 'Зеленая шляпа "Dollar"', price: 50 },
+            { id: 'hat_4', name: 'Кожура от банана', price: 85 },
+            { id: 'hat_5', name: 'Шляпа "Robux"', price: 275 },
+            { id: 'hat_6', name: 'Рыцарская голова', price: 305 },
+            { id: 'hat_7', name: 'Демоническая голова', price: 1065 },
+            { id: 'hat_8', name: 'Ангельская голова', price: 1245 },
+            { id: 'hat_9', name: 'Божественная голова', price: 4095 },
+            { id: 'hat_10', name: 'Хакерская шляпа', price: 17305 },
+            { id: 'hat_11', name: 'Шляпа матрицы', price: 95075 },
+            { id: 'hat_12', name: 'Шляпа пустоты', price: 2075805 },
+            { id: 'hat_13', name: 'Шляпа бесконечности', price: 78035145 },
+        ];
+
+        const CLICKER_UPGRADES = [
+            { r: 0.0002, c: 5 }, { r: 0.0005, c: 10 }, { r: 0.0010, c: 25 }, { r: 0.0015, c: 35 },
+            { r: 0.0020, c: 50 }, { r: 0.0035, c: 65 }, { r: 0.0050, c: 75 }, { r: 0.0100, c: 100 },
+            { r: 0.0150, c: 150 }, { r: 0.0250, c: 350 }, { r: 0.0500, c: 750 }, { r: 0.1000, c: 1650 },
+            { r: 0.1500, c: 2450 }, { r: 0.2500, c: 4150 }, { r: 0.3500, c: 6705 }, { r: 0.5000, c: 8015 },
+            { r: 0.7500, c: 10315 }, { r: 1.0, c: 21075 }, { r: 1.5, c: 108905 }, { r: 2.0, c: 176025 },
+            { r: 3.5, c: 215470 }, { r: 5.0, c: 396100 }, { r: 10.0, c: 505140 }, { r: 25.0, c: 1004805 },
+            { r: 50.0, c: 26057105 }, { r: 100.0, c: 75002705 }
+        ];
+
+        const GAMES = [
+            { id: 'clicker', title: 'Кликер-Робуксы', color: '#0084ff', icon: '🖱️', isClicker: true },
+            { id: 'plane', title: 'Крушение самолета', color: '#3b82f6', icon: '✈️', shop: [
+                { id: 'p_revive', name: 'Возрождение', price: 5 },
+                { id: 'p_inf_revive', name: 'Бесконечные возрождения', price: 35 },
+                { id: 'p_immortal', name: 'Бессмертие', price: 1265 }
+            ]},
+            { id: 'forest', title: 'Выживи 99 ночей в лесу', color: '#16a34a', icon: '🌲', shop: [
+                { id: 'f_revive', name: 'Возрождение', price: 10 },
+                { id: 'f_inf_revive', name: 'Бесконечные возрождения', price: 85 },
+                { id: 'f_immortal', name: 'Бессмертие', price: 1785 }
+            ]},
+            { id: 'army', title: 'Армия нубов', color: '#f59e0b', icon: '⚔️', shop: [
+                { id: 'a_x2_inc', name: 'Х2 доход', price: 245 },
+                { id: 'a_x2_power', name: 'Х2 сила нубов', price: 305 }
+            ]},
+            { id: 'brainrot', title: 'Укради бреинрота', color: '#ec4899', icon: '🧠', shop: [
+                { id: 'b_rand', name: 'Рандомный бреинрот', price: 15 },
+                { id: 'b_base', name: 'Открыть базу', price: 35 },
+                { id: 'b_x2_speed', name: 'Х2 скорость', price: 175 }
+            ]},
+            { id: 'obby', title: 'Паркур обби', color: '#ef4444', icon: '🏃', shop: [
+                { id: 'o_skip', name: 'Пропуск уровня', price: 10 },
+                { id: 'o_cp', name: 'Чекпоинты', price: 25 },
+                { id: 'o_fly', name: 'Полет', price: 845 }
+            ]}
+        ];
+
+        // --- STATE ---
+        let state = {
+            robux: 0,
+            usedCodes: [],
+            inventory: {
+                hats: [],
+                colors: { head: '#ffda1a', torso: '#0084ff', arms: '#ffda1a', legs: '#16a34a' },
+                activeHat: null,
+                perks: []
+            },
+            clicker: {
+                level: 0,
+                boosts: [] // { endTime: timestamp, mult: 0.25 }
+            },
+            gameProgress: {}
+        };
+
+        // --- LOAD/SAVE ---
+        function saveState() {
+            localStorage.setItem('roblox_clone_data', JSON.stringify(state));
+            updateUI();
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('roblox_clone_data');
+            if (saved) {
+                state = JSON.parse(saved);
+            }
+            updateUI();
+            updateAvatarPreview();
+        }
+
+        // --- UI CORE ---
+        function updateUI() {
+            const display = state.robux > 1000 ? Math.floor(state.robux).toLocaleString() : state.robux.toFixed(4);
+            document.getElementById('robux-count').innerText = display;
+            
+            if (document.getElementById('screen-shop').classList.contains('hidden') === false) {
+                renderActiveBoosts();
+            }
+        }
+
+        function showScreen(screenId) {
+            if (gameLoop) { clearInterval(gameLoop); gameLoop = null; }
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('text-white'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.add('text-gray-400'));
+            
+            const activeNav = document.getElementById(`nav-${screenId}`);
+            if (activeNav) {
+                activeNav.classList.remove('text-gray-400');
+                activeNav.classList.add('text-white');
+            }
+
+            if(screenId === 'avatar') renderAvatarEditor();
+            if(screenId === 'home') renderGames();
+            if(screenId === 'shop') renderActiveBoosts();
+        }
+
+        // --- PROMO CODES ---
+        function activatePromo() {
+            const input = document.getElementById('promo-input');
+            const msg = document.getElementById('promo-msg');
+            const code = input.value.trim().toUpperCase();
+            if (!code) return;
+            
+            const encoded = btoa(code);
+
+            if (state.usedCodes.includes(encoded)) {
+                msg.innerText = "КОД УЖЕ ИСПОЛЬЗОВАН";
+                msg.className = "text-sm mt-3 font-bold text-red-500";
+                return;
+            }
+
+            if (P_DATA[encoded]) {
+                const amount = P_DATA[encoded];
+                state.robux += amount;
+                state.usedCodes.push(encoded);
+                msg.innerText = `УСПЕШНО: +${amount.toLocaleString()} R$`;
+                msg.className = "text-sm mt-3 font-bold text-green-500";
+                input.value = "";
+                saveState();
+            } else if (B_DATA[encoded]) {
+                const mult = B_DATA[encoded];
+                state.clicker.boosts.push({
+                    endTime: Date.now() + (3 * 60 * 1000),
+                    mult: mult,
+                    name: code
+                });
+                state.usedCodes.push(encoded);
+                msg.innerText = `БУСТ АКТИВИРОВАН: +${(mult*100).toFixed(0)}%`;
+                msg.className = "text-sm mt-3 font-bold text-blue-400";
+                input.value = "";
+                saveState();
+                renderActiveBoosts();
+            } else {
+                msg.innerText = "НЕВЕРНЫЙ КОД";
+                msg.className = "text-sm mt-3 font-bold text-red-500";
+            }
+        }
+
+        function renderActiveBoosts() {
+            const list = document.getElementById('active-boosts-list');
+            const now = Date.now();
+            state.clicker.boosts = state.clicker.boosts.filter(b => b.endTime > now);
+            
+            if (state.clicker.boosts.length === 0) {
+                list.innerHTML = '<div class="text-xs text-gray-500 italic">Нет активных бустов</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            state.clicker.boosts.forEach(b => {
+                const remain = Math.max(0, Math.floor((b.endTime - now) / 1000));
+                const div = document.createElement('div');
+                div.className = "bg-black/40 p-2 rounded flex justify-between items-center border border-blue-900/30";
+                div.innerHTML = `
+                    <div class="text-[10px] font-bold text-blue-300 uppercase">${b.name} (+${b.mult*100}%)</div>
+                    <div class="text-[10px] font-mono text-gray-400">${Math.floor(remain/60)}:${(remain%60).toString().padStart(2,'0')}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        setInterval(renderActiveBoosts, 1000);
+
+        // --- AVATAR LOGIC ---
+        function updateAvatarPreview() {
+            const colors = state.inventory.colors;
+            document.getElementById('preview-head').style.backgroundColor = colors.head;
+            document.getElementById('preview-torso').style.backgroundColor = colors.torso;
+            document.getElementById('preview-arm-l').style.backgroundColor = colors.arms;
+            document.getElementById('preview-arm-r').style.backgroundColor = colors.arms;
+            document.getElementById('preview-leg-l').style.backgroundColor = colors.legs;
+            document.getElementById('preview-leg-r').style.backgroundColor = colors.legs;
+            
+            const hatContainer = document.getElementById('preview-hat');
+            const activeHat = HATS.find(h => h.id === state.inventory.activeHat);
+            hatContainer.innerHTML = activeHat ? HAT_SVGS[activeHat.id] : '';
+        }
+
+        let currentAvatarTab = 'colors';
+        function switchAvatarTab(tab) {
+            currentAvatarTab = tab;
+            document.querySelectorAll('.avatar-tab').forEach(t => {
+                t.classList.remove('tab-active');
+                t.classList.add('tab-inactive');
+            });
+            const activeEl = document.getElementById(`tab-${tab}`);
+            activeEl.classList.add('tab-active');
+            activeEl.classList.remove('tab-inactive');
+            renderAvatarEditor();
+        }
+
+        function renderAvatarEditor() {
+            const container = document.getElementById('avatar-editor-content');
+            container.innerHTML = '';
+
+            if (currentAvatarTab === 'colors') {
+                const parts = [
+                    { id: 'head', label: 'Голова' },
+                    { id: 'torso', label: 'Тело' },
+                    { id: 'arms', label: 'Руки' },
+                    { id: 'legs', label: 'Ноги' }
+                ];
+                const presetColors = ['#ffda1a', '#0084ff', '#16a34a', '#ff0000', '#ffffff', '#000000', '#8b5cf6', '#f59e0b'];
+
+                parts.forEach(p => {
+                    const row = document.createElement('div');
+                    row.className = 'mb-6';
+                    row.innerHTML = `<div class='text-[10px] font-black uppercase mb-3 text-gray-500 tracking-widest'>${p.label}</div>`;
+                    const colorGrid = document.createElement('div');
+                    colorGrid.className = 'flex gap-3 flex-wrap';
+                    
+                    presetColors.forEach(color => {
+                        const btn = document.createElement('button');
+                        btn.className = `w-11 h-11 rounded-lg border-2 transition-transform active:scale-90 ${state.inventory.colors[p.id] === color ? 'border-white ring-2 ring-blue-500/50' : 'border-transparent'}`;
+                        btn.style.backgroundColor = color;
+                        btn.style.boxShadow = 'inset 0 2px 4px rgba(0,0,0,0.2)';
+                        btn.onclick = () => buyColor(p.id, color);
+                        colorGrid.appendChild(btn);
+                    });
+                    row.appendChild(colorGrid);
+                    container.appendChild(row);
+                });
+            } else {
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-2 gap-4';
+                HATS.forEach(hat => {
+                    const owned = state.inventory.hats.includes(hat.id);
+                    const active = state.inventory.activeHat === hat.id;
+                    const card = document.createElement('div');
+                    card.className = `roblox-card p-4 flex flex-col items-center transition-all ${active ? 'bg-[#2a2d30] border-blue-500/50 shadow-lg' : 'bg-[#232527]'}`;
+                    card.innerHTML = `
+                        <div class="w-16 h-16 mb-3 flex items-center justify-center">${HAT_SVGS[hat.id]}</div>
+                        <div class="text-[11px] font-bold text-center mb-3 h-8 leading-tight text-gray-200">${hat.name}</div>
+                        ${owned ? 
+                            `<button onclick="toggleHat('${hat.id}')" class="w-full py-2 rounded text-[10px] font-black uppercase tracking-tighter ${active ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}">${active ? 'Снять' : 'Надеть'}</button>` :
+                            `<button onclick="buyHat('${hat.id}')" class="w-full bg-[#111] py-2 rounded flex items-center justify-center gap-1 group active:scale-95 transition-transform">
+                                <span class="text-[#0084ff] text-[10px] font-black italic">R$</span>
+                                <span class="text-[11px] font-bold text-gray-300 group-hover:text-white">${hat.price.toLocaleString()}</span>
+                            </button>`
+                        }
+                    `;
+                    grid.appendChild(card);
+                });
+                container.appendChild(grid);
+            }
+        }
+
+        function buyColor(part, color) {
+            if (state.inventory.colors[part] === color) return;
+            if (state.robux >= 10) {
+                state.robux -= 10;
+                state.inventory.colors[part] = color;
+                saveState();
+                updateAvatarPreview();
+                renderAvatarEditor();
+            } else {
+                alert("Недостаточно Robux!");
+            }
+        }
+
+        function buyHat(hatId) {
+            const hat = HATS.find(h => h.id === hatId);
+            if (state.robux >= hat.price) {
+                state.robux -= hat.price;
+                state.inventory.hats.push(hatId);
+                saveState();
+                renderAvatarEditor();
+            } else {
+                alert("Недостаточно Robux!");
+            }
+        }
+
+        function toggleHat(hatId) {
+            if (state.inventory.activeHat === hatId) {
+                state.inventory.activeHat = null;
+            } else {
+                state.inventory.activeHat = hatId;
+            }
+            saveState();
+            updateAvatarPreview();
+            renderAvatarEditor();
+        }
+
+        // --- GAME HUB ---
+        function renderGames() {
+            const list = document.getElementById('games-list');
+            list.innerHTML = '';
+            GAMES.forEach(game => {
+                const card = document.createElement('div');
+                card.className = 'roblox-card overflow-hidden cursor-pointer';
+                card.onclick = () => launchGame(game.id);
+                card.innerHTML = `
+                    <div class="aspect-square flex items-center justify-center text-5xl" style="background-color: ${game.color}22">
+                        ${game.icon}
+                    </div>
+                    <div class="p-2">
+                        <div class="font-bold text-xs truncate">${game.title}</div>
+                        <div class="flex items-center gap-1 mt-1">
+                            <i class="fa-solid fa-thumbs-up text-[8px] text-gray-400"></i>
+                            <span class="text-[8px] text-gray-400">92%</span>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        // --- MINI GAMES LOGIC ---
+        let currentGameId = null;
+        let gameLoop = null;
+        let canvas, ctx;
+
+        function launchGame(gameId) {
+            currentGameId = gameId;
+            const game = GAMES.find(g => g.id === gameId);
+            showScreen('game-play');
+            document.getElementById('game-title').innerText = game.title;
+            document.getElementById('game-overlay').classList.add('hidden');
+            
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+            
+            renderGameShop(game);
+            startGame(gameId);
+        }
+
+        function renderGameShop(game) {
+            const container = document.getElementById('game-shop-items');
+            container.innerHTML = '';
+            game.shop.forEach(item => {
+                const owned = state.inventory.perks.includes(item.id);
+                const itemEl = document.createElement('div');
+                itemEl.className = 'bg-[#232527] p-3 rounded flex justify-between items-center border border-white/5';
+                itemEl.innerHTML = `
+                    <div class="text-xs font-bold">${item.name}</div>
+                    ${owned ? 
+                        `<span class="text-[10px] text-green-500 font-bold uppercase">Куплено</span>` :
+                        `<button onclick="buyPerk('${item.id}', ${item.price})" class="bg-[#111] px-3 py-1 rounded flex items-center gap-1">
+                            <span class="text-[#0084ff] text-[10px] font-black italic">R$</span>
+                            <span class="text-[10px] font-bold">${item.price}</span>
+                        </button>`
+                    }
+                `;
+                container.appendChild(itemEl);
+            });
+        }
+
+        function buyPerk(perkId, price) {
+            if (state.robux >= price) {
+                state.robux -= price;
+                state.inventory.perks.push(perkId);
+                saveState();
+                const game = GAMES.find(g => g.id === currentGameId);
+                renderGameShop(game);
+            } else {
+                alert("Недостаточно Robux!");
+            }
+        }
+
+        // Game Engines
+        function startGame(id) {
+            if (gameLoop) clearInterval(gameLoop);
+            
+            ctx.clearRect(0,0,400,400);
+            
+            if (id === 'clicker') runClickerGame();
+            if (id === 'plane') runPlaneGame();
+            if (id === 'forest') runForestGame();
+            if (id === 'army') runArmyGame();
+            if (id === 'brainrot') runBrainrotGame();
+            if (id === 'obby') runObbyGame();
+        }
+
+        function runClickerGame() {
+            const update = () => {
+                const baseRate = state.clicker.level === 0 ? 0.0001 : CLICKER_UPGRADES[state.clicker.level-1].r;
+                let boostMult = 1;
+                const now = Date.now();
+                state.clicker.boosts.forEach(b => {
+                    if (b.endTime > now) boostMult += b.mult;
+                });
+                const finalRate = baseRate * boostMult;
+
+                ctx.fillStyle = '#191b1d';
+                ctx.fillRect(0,0,400,400);
+                
+                ctx.fillStyle = '#0084ff';
+                ctx.font = '900 40px italic';
+                ctx.textAlign = 'center';
+                ctx.fillText('CLICKER', 200, 80);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '500 18px Roboto';
+                ctx.fillText(`+${finalRate.toFixed(4)} R$ ЗА КЛИК`, 200, 120);
+
+                // Shop / Upgrades list
+                ctx.textAlign = 'left';
+                ctx.font = '700 12px Roboto';
+                ctx.fillStyle = '#444';
+                ctx.fillRect(20, 150, 360, 230);
+                
+                const nextUpgrade = CLICKER_UPGRADES[state.clicker.level];
+                if (nextUpgrade) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('СЛЕДУЮЩЕЕ УЛУЧШЕНИЕ:', 40, 180);
+                    ctx.fillStyle = '#00b06f';
+                    ctx.fillText(`${nextUpgrade.r.toFixed(4)} R$/клик`, 40, 205);
+                    ctx.fillStyle = '#0084ff';
+                    ctx.fillText(`СТОИМОСТЬ: ${nextUpgrade.c} R$`, 40, 230);
+                    
+                    ctx.fillStyle = state.robux >= nextUpgrade.c ? '#00b06f' : '#333';
+                    ctx.fillRect(40, 250, 120, 40);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText('КУПИТЬ', 75, 275);
+                } else {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.fillText('МАКСИМАЛЬНЫЙ УРОВЕНЬ!', 40, 200);
+                }
+
+                // Click area
+                ctx.fillStyle = '#232527';
+                ctx.beginPath();
+                ctx.arc(300, 250, 60, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText('ЖМИ!', 300, 255);
+            };
+
+            canvas.onclick = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (400/rect.width);
+                const y = (e.clientY - rect.top) * (400/rect.height);
+
+                // Buy Upgrade
+                const nextUpgrade = CLICKER_UPGRADES[state.clicker.level];
+                if (nextUpgrade && x > 40 && x < 160 && y > 250 && y < 290) {
+                    if (state.robux >= nextUpgrade.c) {
+                        state.robux -= nextUpgrade.c;
+                        state.clicker.level++;
+                        saveState();
+                    }
+                }
+
+                // Click circle
+                const dist = Math.sqrt((x-300)**2 + (y-250)**2);
+                if (dist < 60) {
+                    const baseRate = state.clicker.level === 0 ? 0.0001 : CLICKER_UPGRADES[state.clicker.level-1].r;
+                    let boostMult = 1;
+                    const now = Date.now();
+                    state.clicker.boosts.forEach(b => {
+                        if (b.endTime > now) boostMult += b.mult;
+                    });
+                    state.robux += baseRate * boostMult;
+                    updateUI();
+                }
+            };
+            gameLoop = setInterval(update, 50);
+        }
+
+        function runPlaneGame() {
+            let px = 200, py = 350;
+            let obstacles = [];
+            let score = 0;
+            let dead = false;
+            let speed = 3;
+
+            const update = () => {
+                if(dead) return;
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0,0,400,400);
+
+                // Player (Simplified Robloxian)
+                ctx.fillStyle = state.inventory.colors.torso;
+                ctx.fillRect(px-15, py, 30, 40);
+                ctx.fillStyle = state.inventory.colors.head;
+                ctx.fillRect(px-10, py-20, 20, 20);
+
+                if (Math.random() < 0.05) obstacles.push({x: Math.random()*380, y: -20, w: 30 + Math.random()*40});
+
+                obstacles.forEach((o, i) => {
+                    o.y += speed;
+                    ctx.fillStyle = '#ff4444';
+                    ctx.fillRect(o.x, o.y, o.w, 20);
+
+                    if (o.y > 330 && o.y < 390 && px > o.x && px < o.x + o.w) {
+                        if (!state.inventory.perks.includes('p_immortal')) {
+                           gameOver('САМОЛЕТ РАЗБИЛСЯ', `Счет: ${score}`);
+                           dead = true;
+                        }
+                    }
+                });
+
+                obstacles = obstacles.filter(o => o.y < 400);
+                score++;
+                speed += 0.001;
+                ctx.fillStyle = 'white';
+                ctx.fillText(`СЧЕТ: ${score}`, 10, 20);
+            };
+
+            const move = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                px = x * (400 / rect.width);
+            };
+
+            canvas.onmousemove = move;
+            canvas.ontouchmove = move;
+            gameLoop = setInterval(update, 16);
+        }
+
+        function runForestGame() {
+            let night = 1;
+            let monsters = [];
+            let hp = 100;
+            let dead = false;
+
+            const update = () => {
+                if(dead) return;
+                ctx.fillStyle = '#051005';
+                ctx.fillRect(0,0,400,400);
+
+                ctx.fillStyle = '#fff';
+                ctx.fillText(`НОЧЬ: ${night}/99`, 10, 20);
+                ctx.fillText(`HP: ${hp}`, 10, 40);
+
+                // Campfire
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.arc(200, 200, 20, 0, Math.PI*2);
+                ctx.fill();
+
+                if (Math.random() < 0.02 * (1 + night/10)) monsters.push({a: Math.random()*Math.PI*2, d: 250});
+
+                monsters.forEach((m, i) => {
+                    m.d -= 1;
+                    let mx = 200 + Math.cos(m.a) * m.d;
+                    let my = 200 + Math.sin(m.a) * m.d;
+                    ctx.fillStyle = '#444';
+                    ctx.fillRect(mx-5, my-5, 10, 10);
+
+                    if (m.d < 30) {
+                        if (!state.inventory.perks.includes('f_immortal')) hp -= 5;
+                        monsters.splice(i, 1);
+                    }
+                });
+
+                if (hp <= 0) {
+                    gameOver('ВЫ НЕ ВЫЖИЛИ', `Прожито ночей: ${night}`);
+                    dead = true;
+                }
+
+                if (Math.random() < 0.001) night++;
+                if (night >= 99) gameOver('ПОБЕДА!', 'Вы выжили 99 ночей!');
+            };
+
+            canvas.onclick = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (400/rect.width);
+                const y = (e.clientY - rect.top) * (400/rect.height);
+                monsters = monsters.filter(m => {
+                    let mx = 200 + Math.cos(m.a) * m.d;
+                    let my = 200 + Math.sin(m.a) * m.d;
+                    let dist = Math.sqrt((x-mx)**2 + (y-my)**2);
+                    return dist > 30;
+                });
+            };
+            gameLoop = setInterval(update, 16);
+        }
+
+        function runArmyGame() {
+            let noobs = 0;
+            let money = 0;
+            const update = () => {
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0,0,400,400);
+                ctx.fillStyle = '#fbbf24';
+                ctx.textAlign = 'center';
+                ctx.font = '20px bold';
+                ctx.fillText(`НУБОВ: ${noobs}`, 200, 100);
+                ctx.fillText(`СИЛА: ${noobs * (state.inventory.perks.includes('a_x2_power') ? 2 : 1)}`, 200, 130);
+                ctx.fillText(`ДОХОД: $${money}`, 200, 160);
+                
+                ctx.fillStyle = '#222';
+                ctx.fillRect(100, 250, 200, 50);
+                ctx.fillStyle = '#fff';
+                ctx.fillText('НАЖМИ ЧТОБЫ СОЗДАТЬ', 200, 280);
+
+                let inc = (noobs * 0.1) * (state.inventory.perks.includes('a_x2_inc') ? 2 : 1);
+                money += inc;
+                money = Math.floor(money * 100) / 100;
+            };
+            canvas.onclick = () => { noobs++; };
+            gameLoop = setInterval(update, 100);
+        }
+
+        function runBrainrotGame() {
+            let points = 0;
+            let items = ['Skibidi', 'Rizzler', 'Gyatt', 'Fanum Tax'];
+            let current = items[0];
+            const update = () => {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0,0,400,400);
+                ctx.fillStyle = '#ec4899';
+                ctx.font = '30px bold';
+                ctx.textAlign = 'center';
+                ctx.fillText(current, 200, 200);
+                ctx.font = '16px';
+                ctx.fillText(`БРЕИНРОТ: ${points}`, 200, 240);
+                if (state.inventory.perks.includes('b_base')) ctx.fillText('БАЗА ОТКРЫТА (X5)', 200, 50);
+            };
+            canvas.onclick = () => {
+                let gain = 1 * (state.inventory.perks.includes('b_x2_speed') ? 2 : 1);
+                if(state.inventory.perks.includes('b_base')) gain *= 5;
+                points += gain;
+                current = items[Math.floor(Math.random()*items.length)];
+            };
+            gameLoop = setInterval(update, 100);
+        }
+
+        function runObbyGame() {
+            let px = 50, py = 300, vy = 0;
+            let level = 1;
+            let platforms = [{x: 0, y: 350, w: 400}];
+            
+            const genLevel = () => {
+                platforms = [{x: 0, y: 350, w: 100}];
+                for(let i=1; i<5; i++) {
+                    platforms.push({x: i*100 + Math.random()*20, y: 350 - Math.random()*50, w: 50});
+                }
+                platforms.push({x: 500, y: 300, w: 100});
+            };
+            genLevel();
+
+            const update = () => {
+                ctx.fillStyle = '#87ceeb';
+                ctx.fillRect(0,0,400,400);
+
+                // Gravity
+                if (!state.inventory.perks.includes('o_fly')) {
+                    vy += 0.5;
+                    py += vy;
+                } else {
+                    py += (Math.sin(Date.now()/200)*2);
+                }
+
+                // Move world
+                let offset = px - 100;
+
+                ctx.save();
+                ctx.translate(-offset, 0);
+
+                platforms.forEach(p => {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(p.x, p.y, p.w, 50);
+                    if (px > p.x && px < p.x+p.w && py+30 > p.y && py+30 < p.y+20) {
+                        py = p.y - 30;
+                        vy = 0;
+                    }
+                });
+
+                ctx.fillStyle = state.inventory.colors.torso;
+                ctx.fillRect(px-10, py, 20, 30);
+                ctx.restore();
+
+                px += 2;
+                if (py > 400) {
+                    if (state.inventory.perks.includes('o_cp')) {
+                        px -= 50; py = 200;
+                    } else {
+                        gameOver('УПАЛ!', `Уровень ${level}`);
+                        px = 50; py = 300;
+                    }
+                }
+                if (px > 550) {
+                    level++;
+                    px = 50;
+                    genLevel();
+                }
+                
+                ctx.fillStyle = '#000';
+                ctx.fillText(`УРОВЕНЬ: ${level}`, 10, 20);
+            };
+            
+            canvas.onclick = () => { if(vy === 0) vy = -10; };
+            gameLoop = setInterval(update, 16);
+        }
+
+        function gameOver(title, results) {
+            clearInterval(gameLoop);
+            document.getElementById('game-overlay').classList.remove('hidden');
+            document.getElementById('game-over-title').innerText = title;
+            document.getElementById('game-results').innerText = results;
+            document.getElementById('btn-restart').onclick = () => launchGame(currentGameId);
+        }
+
+        // Add event listeners for Obby jump
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && currentGameId === 'obby') {
+                // Trigger click/jump
+                canvas.onclick();
+            }
+        });
+
+        // --- INIT ---
+        window.onload = () => {
+            loadState();
+            showScreen('home');
+        };
+
+    </script>
+</body>
+</html>
