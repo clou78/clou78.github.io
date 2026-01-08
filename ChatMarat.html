@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат Марат</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background: #f0f0f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+        
+        .chat-header {
+            background: #4a76a8;
+            color: white;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .message {
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background: #4a76a8;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message {
+            background: #e9e9e9;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+            gap: 10px;
+        }
+        
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        input:focus {
+            border-color: #4a76a8;
+        }
+        
+        button {
+            background: #4a76a8;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            background: #3a6698;
+        }
+        
+        /* Для телефонов */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .chat-container {
+                height: 95vh;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            input, button {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>Чат "Марат"</h2>
+        </div>
+        
+        <div class="messages" id="messages">
+            <!-- Сообщения появляются здесь -->
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Напишите сообщение..." autocomplete="off">
+            <button onclick="sendMessage()">Отправить</button>
+        </div>
+    </div>
+
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('userInput');
+        
+        // База ответов - исправлена (добавлены запятые)
+        const responses = {
+            'привет': 'Привет, че тебе надо?',
+            'ку': 'Покукарекай мне тут еще!',
+            'здарова': 'Здарова, заебал!',
+            'дела': 'Да нормально все у меня!',
+            'занимаешься': 'Отьебись, заебал!',
+            'сука': 'Мать твоя - сука!',
+            'блять': 'Батя твой - блядь!',
+            'заебал': 'Это ты меня заебал.',
+            'иди': 'Никуда я не пойду, мудак!',
+            'нахуй': 'К твоей родне, не хожу!',
+            'хуй': 'Этого у тебя и нету!',
+            'член': 'Этого у тебя и нету!',
+            'марат': 'Че те надо, сука?',
+            'чушпан': 'Да да, ты чушпан!',
+            'рот': 'Рот твой ебал, шалава!',
+            'шлюха': 'Мать твоя, родная, шлюха!',
+            'шалава': 'Сестра твоя, шалава, сука!!!',
+            'пиздец': 'Да да, полный пиздец!',
+            'жизнь': 'Жизнь - это пиздец.',
+            'район': 'Я весь район в страхе держу, и тебя тоже, выблядок!',
+            'урод': 'Урод - это ты по жизни!',
+            'тупой': 'А ты острый что-ли?!',
+            'далбаеб': 'Далбаеб тут только ты!',
+            'работа': 'Нет работы у меня, бродяга я по жизни.',
+            'нейросеть': 'Какая нахуй нейросеть?',
+            'ии': 'Какая нахуй нейронка?!',
+            'реяльно': 'Ряльна, ряльна блять!',
+            'человек': 'Ты членовек!',
+            'окак': 'Хуяк!',
+            '1': 'Один хуй у тебя в жопе!',
+            '2': 'Два хуя у тебя во рту!',
+            '3': 'Три хуя у тебя в анусе!',
+            '4': '4 - это твой айкью?',
+            '5': '5 - это твой айкью, сумарный на всю семью?',
+            '6': 'Ну ты прям шестерка, такойже далбаеб и раб!!!',
+            '7': 'Семь членов в твоей глотке!',
+            '8': 'Восемь членов у тебя во рту!',
+            '9': 'Иди нахуй уже, девяточник.',
+            '10': 'С десятым хуем в жопе тебя!!!',
+            '67': 'Сиксевен, ебать ты смешной!',
+            '1488': 'Хахаха, ебать смешно, пасхалочка.',
+            '42': '42, тупая шутка!',
+            '52': '52, уебанская шутка, тв такой тупой, бля...',
+            '1337': '1337 - самая не смешная шутка года, бля!',
+            '666': 'Ты демон чтоли? С 666 на груди?!',
+            '777': 'Ты любитель понтов? 777, хахаха!',
+            'да': 'Да - пизда!!!',
+            'нет': 'Нет - пидора ответ!!',
+            'клоун': 'Клоун, тут только ты! Сука!',
+            'текст': 'Какой еще текст?',
+            'бля': 'Блякалка!!!',
+            'мать': 'Этого у тебя и нету!',
+            'отец': 'Этого у тебя и нету!',
+            'батя': 'Этого у тебя и нету!',
+            'мама': 'Этого у тебя и нету!',
+            'матуха': 'Этого у тебя и нету!',
+            'батек': 'Этого у тебя и нету!',
+            'батька': 'Этого у тебя и нету!',
+            'мамка': 'Этого у тебя и нету!',
+            'папка': 'Этого у тебя и нету!',
+            'чат': 'Это наш чат с тобою, тупое чмо!',
+            'сообщение': 'Какое еще сообщение? Ты еблан совсем?!',
+            'пон': 'Поной, выблядок!',
+            'выблядок': 'Выблядок - это ты!',
+            'ок': ';)',
+            'окей': ';)',
+            'оке': ';)',
+            'ока': ';)',
+            'он': ';)',
+            'она': ';)',
+            'они': ';)',
+            'оно': ';)',
+            'пизда': ';)',
+            'пиздец': ';)',
+            'рил': ';)',
+            '?': 'Тупой вопрос!',
+            '!': 'Не восклицай, шавка!',
+            '.': 'Грамотей дохуя? Точки ставит!',
+            ',': 'Ох ты ж, грамотей ебаный! Запетый ставит!',
+            'сам': 'Не самкай мне тут! Мать твоя самка блять!',
+            'не': 'Что не, идиот?!',
+            'вопрос': 'Уебанский вопрос, сука!!!',
+            'гей': 'Ты что, пидр?',
+            'лгбт': 'Ты внатуре гей?!',
+            'и': 'Не икай, мне тут! Сучара!',
+            'но': 'но...но... НЕ ЗАИКАЙСЯ черт ебанный!!!',
+            'приа': 'Пошел нахуй.'
+        };
+        
+        // Начальное сообщение
+        addMessage('Привет, я Марат! Пиши что хочешь.', 'bot');
+        
+        function sendMessage() {
+            const text = userInput.value.trim().toLowerCase();
+            if (!text) return;
+            
+            // Добавляем сообщение пользователя
+            addMessage(text, 'user');
+            
+            // Очищаем поле ввода
+            userInput.value = '';
+            
+            // Разбиваем сообщение на слова
+            const words = text.split(/\s+/);
+            let response = 'Че несёшь, чушпан? Не понял...';
+            
+            // Проверяем КАЖДОЕ слово отдельно
+            for (const word of words) {
+                if (responses[word]) {
+                    response = responses[word];
+                    break; // Нашли первое совпадение - выходим
+                }
+            }
+            
+            // Добавляем ответ с задержкой
+            setTimeout(() => {
+                addMessage(response, 'bot');
+            }, 500);
+        }
+        
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Отправка по Enter
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Фокус на поле ввода при загрузке
+        userInput.focus();
+    </script>
+</body>
+</html>
