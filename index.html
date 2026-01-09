@@ -237,6 +237,7 @@
             border-bottom: 2px solid rgba(255, 215, 0, 0.3);
             text-align: left;
             position: relative;
+            cursor: pointer;
         }
 
         .category-title::after {
@@ -253,12 +254,13 @@
         }
 
         .category-content {
-            transition: max-height 0.3s ease-out;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
             overflow: hidden;
         }
 
         .category-content.collapsed {
             max-height: 0 !important;
+            opacity: 0;
         }
 
         /* ⭐ Подсветка при поиске */
@@ -286,11 +288,33 @@
             }
         }
 
+        /* Подсветка категорий */
+        .category-title.highlight {
+            color: #ffff00 !important;
+            border-bottom: 2px solid #ffff00 !important;
+            text-shadow: 0 0 10px rgba(255, 255, 0, 0.7);
+            animation: category-glow 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes category-glow {
+            0% { text-shadow: 0 0 5px rgba(255, 255, 0, 0.7); }
+            100% { text-shadow: 0 0 15px rgba(255, 255, 0, 1); }
+        }
+
         /* Затемнение не найденных */
         button.dimmed {
             opacity: 0.3;
             transform: scale(0.95);
             filter: grayscale(50%);
+        }
+
+        .category-section.dimmed {
+            opacity: 0.3;
+            transform: scale(0.98);
+        }
+
+        .category-section.dimmed .category-content {
+            opacity: 0.5;
         }
 
         .menu-box::before,
@@ -378,7 +402,7 @@
                 type="text" 
                 class="search-input" 
                 id="searchInput" 
-                placeholder="🔍 Поиск проектов..."
+                placeholder="🔍 Поиск проектов и каталогов..."
                 autocomplete="off"
             >
             <button class="search-clear" id="clearBtn" onclick="clearSearch()">✕</button>
@@ -388,7 +412,7 @@
         
         <div class="buttons-container" id="buttonsContainer">
             <!-- Категория: Проекты -->
-            <div class="category-section">
+            <div class="category-section" data-category-name="Проекты">
                 <div class="category-title" onclick="toggleCategory('projects')">🚀 Проекты</div>
                 <div class="category-content" id="projects-category">
                     <button><a href="AI.html">🤖 Наш ИИ</a></button>
@@ -429,7 +453,7 @@
             </div>
             
             <!-- Категория: Улучшения -->
-            <div class="category-section">
+            <div class="category-section" data-category-name="Улучшения">
                 <div class="category-title" onclick="toggleCategory('improvements')">✨ Улучшения</div>
                 <div class="category-content" id="improvements-category">
                     <button><a href="/indexupg1.html">📼 Youtube [Можете Улучшать]</a></button>
@@ -437,7 +461,7 @@
             </div>
             
             <!-- Категория: Правила -->
-            <div class="category-section">
+            <div class="category-section" data-category-name="Правила">
                 <div class="category-title" onclick="toggleCategory('rules')">📜 Правила</div>
                 <div class="category-content" id="rules-category">
                     <div class="text-category">
@@ -453,9 +477,9 @@
                 </div>
             </div>
 
-            <div class="category-section">
-                <div class="category-title" onclick="toggleCategory('improvements')">🧩 HP+ Studio</div>
-                <div class="category-content" id="improvements-category">
+            <div class="category-section" data-category-name="HP+ Studio">
+                <div class="category-title" onclick="toggleCategory('hp-studio')">🧩 HP+ Studio</div>
+                <div class="category-content" id="hp-studio-category">
                     <button><a href="index40.html">⬜ RobloxWeb</a></button>
                     <button><a href="index39.html">⌛ ZenPottery</a></button>
                     <button><a href="index38.html">🟥🟨🟩🟦🟪 Block Blast</a></button>
@@ -464,9 +488,9 @@
                 </div>
             </div>
 
-            <div class="category-section">
-                <div class="category-title" onclick="toggleCategory('improvements')">🎲 game max pro</div>
-                <div class="category-content" id="improvements-category">
+            <div class="category-section" data-category-name="game max pro">
+                <div class="category-title" onclick="toggleCategory('game-max-pro')">🎲 game max pro</div>
+                <div class="category-content" id="game-max-pro-category">
                     <button><a href="index1.html">🎲 game max portal</a></button>
                     <button><a href="index10.html">🌐 Game Site Slava</a></button>
                     <button><a href="index20.html">🌁 The City</a></button>
@@ -485,14 +509,17 @@
         const searchResults = document.getElementById('searchResults');
         const noResults = document.getElementById('noResults');
         
-        // Собираем все кнопки проектов
-        const projectButtons = document.querySelectorAll('#projects-category button');
-        const allButtons = document.querySelectorAll('.buttons-container button');
+        // Собираем все элементы для поиска
+        const allCategorySections = document.querySelectorAll('.category-section');
+        const allCategoryTitles = document.querySelectorAll('.category-title');
+        const allButtons = document.querySelectorAll('.category-content button');
 
         // Функция для переключения категорий
         function toggleCategory(categoryId) {
-            const categoryTitle = document.querySelector(`#${categoryId}-category`).parentElement.querySelector('.category-title');
             const categoryContent = document.getElementById(`${categoryId}-category`);
+            if (!categoryContent) return;
+            
+            const categoryTitle = categoryContent.parentElement.querySelector('.category-title');
             
             categoryTitle.classList.toggle('collapsed');
             categoryContent.classList.toggle('collapsed');
@@ -500,10 +527,12 @@
             // Устанавливаем максимальную высоту для анимации
             if (!categoryContent.classList.contains('collapsed')) {
                 categoryContent.style.maxHeight = categoryContent.scrollHeight + 'px';
+            } else {
+                categoryContent.style.maxHeight = '0';
             }
         }
 
-        // Поиск при вводе
+        // Расширенная функция поиска
         searchInput.addEventListener('input', function() {
             const query = this.value.toLowerCase().trim();
             
@@ -512,40 +541,145 @@
             
             let matchCount = 0;
             let firstMatch = null;
+            let hasAnyResults = false;
 
-            // Ищем только в категории проектов
-            projectButtons.forEach(button => {
-                const text = button.textContent.toLowerCase();
-                const isMatch = query && text.includes(query);
-                
-                // Убираем все классы
-                button.classList.remove('highlight', 'dimmed');
-                
-                if (query) {
-                    if (isMatch) {
-                        button.classList.add('highlight');
-                        matchCount++;
-                        if (!firstMatch) firstMatch = button;
-                    } else {
-                        button.classList.add('dimmed');
-                    }
-                }
-            });
-
-            // Обновляем счётчик
             if (query) {
+                // Сначала сбрасываем все состояния
+                allCategorySections.forEach(section => {
+                    section.classList.remove('dimmed');
+                    const categoryTitle = section.querySelector('.category-title');
+                    const categoryContent = section.querySelector('.category-content');
+                    const categoryButtons = section.querySelectorAll('button');
+                    
+                    categoryTitle.classList.remove('highlight');
+                    
+                    categoryButtons.forEach(button => {
+                        button.classList.remove('highlight', 'dimmed');
+                    });
+                });
+
+                // Ищем совпадения
+                allCategorySections.forEach(section => {
+                    const categoryTitle = section.querySelector('.category-title');
+                    const categoryContent = section.querySelector('.category-content');
+                    const categoryButtons = section.querySelectorAll('button');
+                    const categoryName = section.getAttribute('data-category-name') || '';
+                    
+                    const titleText = categoryTitle.textContent.toLowerCase();
+                    const categoryNameLower = categoryName.toLowerCase();
+                    
+                    // Проверяем совпадение с названием каталога
+                    const isCategoryMatch = titleText.includes(query) || 
+                                           categoryNameLower.includes(query);
+                    
+                    let hasButtonMatches = false;
+                    let categoryMatchCount = 0;
+                    
+                    // Проверяем совпадения в кнопках
+                    categoryButtons.forEach(button => {
+                        const buttonText = button.textContent.toLowerCase();
+                        const isButtonMatch = buttonText.includes(query);
+                        
+                        if (isButtonMatch) {
+                            hasButtonMatches = true;
+                            categoryMatchCount++;
+                            matchCount++;
+                            
+                            button.classList.add('highlight');
+                            button.classList.remove('dimmed');
+                            
+                            if (!firstMatch) {
+                                firstMatch = button;
+                            }
+                        } else {
+                            button.classList.remove('highlight');
+                            button.classList.add('dimmed');
+                        }
+                    });
+                    
+                    // Если есть совпадения в категории или в кнопках
+                    if (isCategoryMatch || hasButtonMatches) {
+                        hasAnyResults = true;
+                        
+                        // Раскрываем категорию
+                        categoryContent.classList.remove('collapsed');
+                        categoryTitle.classList.remove('collapsed');
+                        
+                        // Устанавливаем правильную высоту
+                        setTimeout(() => {
+                            categoryContent.style.maxHeight = categoryContent.scrollHeight + 'px';
+                        }, 10);
+                        
+                        // Подсвечиваем заголовок категории
+                        if (isCategoryMatch) {
+                            categoryTitle.classList.add('highlight');
+                            matchCount++;
+                        }
+                        
+                        section.classList.remove('dimmed');
+                    } else {
+                        // Если нет совпадений, затемняем категорию
+                        section.classList.add('dimmed');
+                        categoryContent.classList.add('collapsed');
+                        categoryTitle.classList.add('collapsed');
+                        categoryContent.style.maxHeight = '0';
+                    }
+                });
+                
+                // Обновляем счётчик
                 if (matchCount > 0) {
-                    searchResults.textContent = `✨ Найдено: ${matchCount} проект(ов)`;
+                    searchResults.textContent = `✨ Найдено: ${matchCount} элемент(ов)`;
                     noResults.classList.remove('visible');
+                    
                     // Прокрутка к первому результату
                     if (firstMatch) {
-                        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        setTimeout(() => {
+                            firstMatch.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                            });
+                        }, 100);
                     }
                 } else {
                     searchResults.textContent = '';
                     noResults.classList.add('visible');
+                    
+                    // Показываем все категории, но затемненные
+                    allCategorySections.forEach(section => {
+                        section.classList.add('dimmed');
+                        const categoryContent = section.querySelector('.category-content');
+                        const categoryTitle = section.querySelector('.category-title');
+                        
+                        categoryContent.classList.add('collapsed');
+                        categoryTitle.classList.add('collapsed');
+                        categoryContent.style.maxHeight = '0';
+                    });
                 }
             } else {
+                // Если поиск пустой, показываем все в нормальном состоянии
+                allCategorySections.forEach(section => {
+                    section.classList.remove('dimmed');
+                    
+                    const categoryTitle = section.querySelector('.category-title');
+                    const categoryContent = section.querySelector('.category-content');
+                    const categoryButtons = section.querySelectorAll('button');
+                    
+                    // Раскрываем все категории
+                    categoryContent.classList.remove('collapsed');
+                    categoryTitle.classList.remove('collapsed');
+                    
+                    // Устанавливаем правильную высоту
+                    setTimeout(() => {
+                        categoryContent.style.maxHeight = categoryContent.scrollHeight + 'px';
+                    }, 10);
+                    
+                    categoryTitle.classList.remove('highlight');
+                    
+                    categoryButtons.forEach(button => {
+                        button.classList.remove('highlight', 'dimmed');
+                    });
+                });
+                
                 searchResults.textContent = '';
                 noResults.classList.remove('visible');
             }
@@ -583,6 +717,5 @@
         });
     </script>
 </body>
-
 </html>
 
